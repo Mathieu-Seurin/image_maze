@@ -1,6 +1,7 @@
 import argparse
 import logging
 import time
+from itertools import count
 
 from maze import ImageGridWorld
 from rl_agent.basic_agent import AbstractAgent
@@ -10,6 +11,8 @@ parser = argparse.ArgumentParser('Log Parser arguments!')
 
 parser.add_argument("-exp_dir", type=str, default="out", help="Directory with one expe")
 parser.add_argument("-config", type=str, help="Which file correspond to the experiment you want to launch ?")
+parser.add_argument("-display", type=str, help="Display images or not")
+
 # TODO default config and additionnal config.
 
 # Args parser, logging, config
@@ -29,23 +32,28 @@ env = ImageGridWorld(config=config["env_type"],
 rl_agent = AbstractAgent(config, env.action_space()) # Todo : agent factory that loads the good agent based on config file
 
 
-
 n_episode = config["optim"]["n_episode"]
 
 for ep in range(n_episode):
     observation = env.reset()
     done = False
-    env.render()
+    count = 0
+
+    if args.display:
+        env.render()
+
     logging.info(env.position)
     while not done:
         action = rl_agent.forward(observation)
-        action=0
+        count += 1
         logging.info(action)
         observation, reward, done, info = env.step(action)
-        env.render()
+        if args.display:
+            env.render()
         logging.info(info)
         logging.info(done)
-        time.sleep(1)
         # Todo : reward logger
+
+    logging.info(f"Temps pour trouver la reward : {count}")
 
 

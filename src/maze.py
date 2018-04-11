@@ -23,10 +23,10 @@ class ImageGridWorld(object):
         self.black_image = np.zeros((*self.size_img, 3))
 
         self.background = []
-        self.create_background(show=show)
+        self.create_background(show=False)
 
         self.grid = []
-        self.create_grid_of_image(grid_type="all_diff", show=True)
+        self.create_grid_of_image(grid_type="all_diff", show=show)
 
         # ========== What does a state correspond to ? ===========
         # =========================================================
@@ -221,6 +221,7 @@ class ImageGridWorld(object):
 
 if __name__ == "__main__":
 
-    maze = ImageGridWorld(n_row=5, n_col=4)
+    config = {"n_row":5, "n_col":4, "state_type":"surrounding", "reward_type":"fixed"}
+    maze = ImageGridWorld(config=config, show=True)
     print(maze.size_vector)
     print(maze.size_img)
