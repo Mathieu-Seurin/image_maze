@@ -1,18 +1,41 @@
 import numpy as np
 
 def to_rgb_channel_first(im):
-    w, h = im.shape
-    ret = np.empty((3, w, h), dtype=np.float32)
-    ret[0, :, :] = im / 255
-    ret[1, :, :] = ret[2, :, :] = ret[0, :, :]
-    return ret
+
+    if im.ndim == 3: # Multiple images
+        b, w, h = im.shape
+        rgb_im = np.empty((b, 3, w, h), dtype=np.float32)
+        rgb_im[:, 0, :, :] = im
+        rgb_im[:, 1, :, :] = rgb_im[:, 2, :, :] = rgb_im[:, 0, :, :]
+
+    elif im.ndim == 2:
+        w, h = im.shape
+        rgb_im = np.empty((3, w, h), dtype=np.float32)
+        rgb_im[0, :, :] = im
+        rgb_im[1, :, :] = rgb_im[2, :, :] = rgb_im[0, :, :]
+
+    else:
+        assert False, "Can only convert images or batches of images\nInput dimension can be (height, width) or (batch, height, width)"
+
+    return rgb_im
 
 def to_rgb_channel_last(im):
-    w, h = im.shape
-    ret = np.empty((w, h, 3), dtype=np.float32)
-    ret[:, :, 0] = im / 255
-    ret[:, :, 1] = ret[:, :, 2] = ret[:, :, 0]
-    return ret
+
+    if im.ndim == 3: # Multiple images in batches
+        b, w, h = im.shape
+        rgb_im = np.empty((b, w, h, 3), dtype=np.float32)
+        rgb_im[:, :, :, 0] = im
+        rgb_im[:, :, :, 1] = rgb_im[:, :, :, 2] = rgb_im[:, :, :, 0]
+
+    elif im.ndim == 2:
+        w, h = im.shape
+        rgb_im = np.empty((w, h, 3), dtype=np.float32)
+        rgb_im[:, :, 0] = im
+        rgb_im[:, :, 1] = rgb_im[:, :, 2] = rgb_im[:, :, 0]
+    else:
+        assert False, "Can only convert images or batches of images\nInput dimension can be (height, width) or (batch, height, width)"
+
+    return rgb_im
 
 def channel_first_to_channel_last(im):
     assert im.shape[0] == 3, "Image needs to be in format (3,H,W)"
@@ -57,6 +80,25 @@ if __name__ == "__main__":
     rgb_im_first = channel_last_to_channel_first(rgb_im_last)
     assert rgb_im_first.shape[0] == 3, f"wrong channel number \nis :{rgb_im_first.shape[0]}, should be 3"
     assert rgb_im_first.shape[1] == 30, "n_line is not the same"
+
+
+    # Same tests, but for images in batches
+    #=======================================
+
+    # Create image with channel being the first dimension
+    one_channel_im_batch = np.random.random((4, 30,28))# not square to test if line and col are being kept in order
+    rgb_im_first = to_rgb_channel_first(one_channel_im_batch)
+    assert rgb_im_first.shape[0] == 4, f"wrong batch number \nis :{rgb_im_first.shape[0]}, should be 4"
+    assert rgb_im_first.shape[1] == 3, f"wrong channel number \nis :{rgb_im_first.shape[1]}, should be 3"
+    assert rgb_im_first.shape[2] == 30, "n_line is not the same"
+
+    # Create image with channel being the last dimension
+    # =================================================
+    one_channel_im_batch = np.random.random((5, 30,28))
+    rgb_im_last = to_rgb_channel_last(one_channel_im_batch)
+    assert rgb_im_last.shape[0] == 5, f"wrong batch number \nis :{rgb_im_last.shape[0]}, should be 4"
+    assert rgb_im_last.shape[3] == 3, f"wrong channel number \nis :{rgb_im_last.shape[3]}, should be 3"
+    assert rgb_im_last.shape[1] == 30, "n_line is not the same"
 
     print("Tests ok.")
 

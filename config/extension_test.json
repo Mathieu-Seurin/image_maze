@@ -1,0 +1,14 @@
+{
+  "name": "basic_extension",
+  "env_type": {
+    "reward_type": "modified"
+  },
+  "optim":
+  {
+    "learning_rate": 1e-5,
+    "schedule":
+    {
+      "step" : 100
+    }
+  }
+}

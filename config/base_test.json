@@ -5,18 +5,15 @@
     "n_row": 5,
     "n_col": 4,
     "state_type" : "surrounding",
-    "objective" : {
-      "type" : "fixed",
-      "curriculum":
-      {
-        "n_objective" : 3,
-        "change_every" : 10
-      }
-
-    }
+    "reward_type" : "fixed"
   },
   "optim": {
     "learning_rate" : 1e-4,
+    "schedule" :
+      {
+        "begin": 1,
+        "step" :1e-2
+      },
     "n_episode" : 1
   },
   "seed": 42
