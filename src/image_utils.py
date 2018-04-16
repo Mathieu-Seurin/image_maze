@@ -1,4 +1,5 @@
 import numpy as np
+from skvideo.io import FFmpegWriter as VideoWriter
 
 def to_rgb_channel_first(im):
     w, h = im.shape
@@ -32,6 +33,15 @@ def plot_single_image(im):
     pass
 
 
+def make_video(replay, filename):
+    n_frames = len(replay)
+    n_channels, n_w, n_h = replay[0].shape
+    writer = VideoWriter(filename + '.mp4')
+    for i in range(n_frames):
+        writer.writeFrame(replay[i]*255)
+    writer.close()
+
+
 if __name__ == "__main__":
 
     # Create image with channel being the first dimension
@@ -59,5 +69,3 @@ if __name__ == "__main__":
     assert rgb_im_first.shape[1] == 30, "n_line is not the same"
 
     print("Tests ok.")
-
-
