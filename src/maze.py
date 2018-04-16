@@ -3,6 +3,7 @@ import numpy as np
 from copy import copy
 import random
 import itertools
+import time
 
 import matplotlib
 #matplotlib.use('Qt5Agg')
@@ -57,7 +58,7 @@ class ImageGridWorld(object):
         # =========================================================
         # reward is only located at one place : fixed
         if config["objective"]["type"] == "fixed":
-            self.reward_position = [2, 2]
+            self.reward_position = (2, 2)
 
             # Identity : Do nothing
             self.get_objective_state = lambda *args: None
@@ -189,7 +190,7 @@ class ImageGridWorld(object):
         else:
             return 0
 
-    def render(self):
+    def render(self, display=True):
         """
         This function print the board and the position of the agent
         ONLY in this function, the image format is (H,W,C) (changed at the beginning)
@@ -214,9 +215,14 @@ class ImageGridWorld(object):
         shown_grid = np.concatenate([custom_grid[i] for i in reversed(range(self.n_row))], axis=1)
         shown_grid = np.concatenate([shown_grid[i] for i in range(self.n_col)], axis=1)
 
-        plt.figure()
-        plt.imshow(shown_grid)
-        plt.show()
+        if display:
+            plt.figure()
+            plt.imshow(shown_grid)
+            plt.show()
+            time.sleep(1)
+
+        shown_grid = shown_grid.transpose([2, 0, 1])
+        return shown_grid
 
     def create_grid_of_image(self, grid_type="all_diff", show=False):
 

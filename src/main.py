@@ -6,6 +6,11 @@ from itertools import count
 from maze import ImageGridWorld
 from rl_agent.basic_agent import AbstractAgent
 from config import load_config_and_logger
+from rl_agent.dqn_agent import DQNAgent
+import torch.optim as optim
+import torch
+import numpy as np
+from image_utils import make_video
 
 parser = argparse.ArgumentParser('Log Parser arguments!')
 
@@ -28,38 +33,101 @@ logging = logging.getLogger()
 
 # Environment
 # ===========
-env = ImageGridWorld(config=config["env_type"],
-                     show=True)
+env = ImageGridWorld(config=config["env_type"], show=False)
 # Agent
 # =====
-rl_agent = AbstractAgent(config, env.action_space()) # Todo : agent factory that loads the good agent based on config file
+
+# Todo : agent factory that loads the good agent based on config file
+
+# rl_agent = AbstractAgent(config, env.action_space())
+rl_agent = DQNAgent(config['dqn_params'], env.action_space())
 
 
 n_episode = config["optim"]["n_episode"]
+# To be modified for improved config
+def train(agent, env, save_path, n_epochs, epsilon_init=1., epsilon_schedule='exp', eps_decay=None, lr=0.001, batch_size=32):
+    if epsilon_schedule == 'linear':
+        eps_range = np.linspace(epsilon_init, 0., n_epochs)
+    elif epsilon_schedule=='constant':
+        eps_range = [epsilon_init for _ in range(n_epochs)]
+    elif epsilon_schedule=='exp':
+        if not eps_decay:
+            eps_decay = n_epochs / 4.
+        eps_range = [epsilon_init * np.exp(-1. * i / eps_decay) for i in range(n_epochs)]
 
-for ep in range(n_episode):
-    observation = env.reset()
-    done = False
-    count = 0
+    losses, rewards = [], []
 
-    if args.display:
-        env.render()
+    for epoch in range(n_epochs):
+        state = env.reset()
+        done = False
+        epoch_losses = []
+        epoch_rewards = []
+        video = []
+        time_out = 20
+        time = 0
 
-    logging.info(env.position)
-    while not done:
-        action = rl_agent.forward(observation)
-        count += 1
-        logging.info(action)
-        observation, reward, done, info = env.step(action)
-        if args.display:
-            env.render()
-            time.sleep(2)
-        logging.info(info)
-        logging.info(done)
-
-
-        # Todo : reward logger
-
-    logging.info(f"Temps pour trouver la reward : {count}")
+        while not done and time < time_out:
+            time += 1
+            if epoch % 10 == 1:
+                video.append(env.render(display=args.display))
+            action = agent.forward(state, eps_range[epoch])
+            next_state, reward, done, _ = env.step(action)
+            loss = agent.optimize(state, action, next_state, reward, batch_size=batch_size)
+            state = next_state
 
 
+            epoch_losses.append(loss)
+            epoch_rewards.append(reward)
+
+        agent.callback(epoch)
+
+        logging.info('Epoch {}: loss= {}, reward= {}, duration= {}'.format(
+            epoch, np.mean(epoch_losses), np.sum(epoch_rewards), len(epoch_rewards)))
+        losses.append(np.mean(epoch_losses))
+        rewards.append(np.sum(epoch_rewards))
+
+
+        if epoch % 10 == 1:
+            make_video(video, save_path.format('train_' + str(epoch)))
+
+            with open(save_path.format('train_losses'), 'a+') as f:
+                for l in losses:
+                    f.write(str(l)+'\n')
+            losses = []
+            with open(save_path.format('train_rewards'), 'a+') as f:
+                for r in rewards:
+                    f.write(str(r)+'\n')
+            rewards = []
+
+def test(agent, env, n_epochs, display=False):
+    losses, rewards = [], []
+
+    for epoch in range(n_epochs):
+        state = env.reset()
+        done = False
+        video = []
+        time_out = 20
+        time = 0
+        epoch_rewards = []
+
+        while not done and time < time_out:
+            time += 1
+            if epoch % 10 == 1:
+                video.append(env.render(display=display))
+
+            action = agent.forward(state, 0.)
+            next_state, reward, done, _ = env.step(action)
+            epoch_rewards += [reward]
+            state = next_state
+
+        logging.info('Epoch {}: reward= {}, duration= {}'.format(
+            epoch, np.sum(epoch_rewards), len(epoch_rewards)))
+
+        rewards.append(np.sum(epoch_rewards))
+
+        if epoch % 10 == 1:
+            make_video(video, save_path.format('test_' + str(epoch)))
+
+
+train(rl_agent, env, save_path, n_episode)
+test(rl_agent, env, 32, display=False)
