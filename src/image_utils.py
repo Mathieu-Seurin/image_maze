@@ -61,7 +61,9 @@ def make_video(replay, filename):
     n_channels, n_w, n_h = replay[0].shape
     writer = VideoWriter(filename + '.mp4')
     for i in range(n_frames):
-        writer.writeFrame(replay[i]*255)
+        for _ in range(5):
+            # Frame repeat for easier watching
+            writer.writeFrame(replay[i]*255)
     writer.close()
 
 
