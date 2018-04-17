@@ -5,8 +5,9 @@ from itertools import count
 
 from maze import ImageGridWorld
 from rl_agent.basic_agent import AbstractAgent
-from config import load_config_and_logger
 from rl_agent.dqn_agent import DQNAgent
+from rl_agent.reinforce_agent import ReinforceAgent
+from config import load_config_and_logger
 import torch.optim as optim
 import torch
 import numpy as np
@@ -40,7 +41,8 @@ env = ImageGridWorld(config=config["env_type"], show=False)
 # Todo : agent factory that loads the good agent based on config file
 
 # rl_agent = AbstractAgent(config, env.action_space())
-rl_agent = DQNAgent(config['dqn_params'], env.action_space())
+# rl_agent = DQNAgent(config['dqn_params'], env.action_space())
+rl_agent = ReinforceAgent(config['dqn_params'], env.action_space())
 
 
 n_episode = config["optim"]["n_episode"]
@@ -81,8 +83,8 @@ def train(agent, env, save_path, n_epochs, epsilon_init=1., epsilon_schedule='ex
 
         agent.callback(epoch)
 
-        logging.info('Epoch {}: loss= {}, reward= {}, duration= {}'.format(
-            epoch, np.mean(epoch_losses), np.sum(epoch_rewards), len(epoch_rewards)))
+        # logging.info('Epoch {}: loss= {}, reward= {}, duration= {}'.format(
+        #     epoch, np.mean(epoch_losses), np.sum(epoch_rewards), len(epoch_rewards)))
         losses.append(np.mean(epoch_losses))
         rewards.append(np.sum(epoch_rewards))
 
@@ -100,7 +102,7 @@ def train(agent, env, save_path, n_epochs, epsilon_init=1., epsilon_schedule='ex
             rewards = []
 
 def test(agent, env, n_epochs, display=False):
-    losses, rewards = [], []
+    lengths, rewards = [], []
 
     for epoch in range(n_epochs):
         state = env.reset()
@@ -124,10 +126,12 @@ def test(agent, env, n_epochs, display=False):
             epoch, np.sum(epoch_rewards), len(epoch_rewards)))
 
         rewards.append(np.sum(epoch_rewards))
+        lengths.append(len(epoch_rewards))
 
         if epoch % 10 == 1:
             make_video(video, save_path.format('test_' + str(epoch)))
 
+        logging.info('Mean reward :{}, mean duration :{}'.format(np.mean(rewards), np.mean(lengths)))
 
 train(rl_agent, env, save_path, n_episode)
-test(rl_agent, env, 32, display=False)
+test(rl_agent, env, 256, display=False)
