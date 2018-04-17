@@ -5,6 +5,8 @@
     "n_row": 5,
     "n_col": 4,
     "state_type" : "surrounding",
+    "change_maze" : 5,
+    "maze_type" : "sequential",
     "objective" : {
       "type" : "fixed",
       "curriculum":

@@ -1,5 +1,6 @@
 import numpy as np
 from skvideo.io import FFmpegWriter as VideoWriter
+import matplotlib.pyplot as plt
 
 def to_rgb_channel_first(im):
 
@@ -53,7 +54,13 @@ def channel_last_to_channel_first(im):
     return im
 
 def plot_single_image(im):
-    pass
+
+    if im.shape[0] == 3 :#channel first
+        im = channel_first_to_channel_last(im)
+
+    plt.figure()
+    plt.imshow(im)
+    plt.show()
 
 
 def make_video(replay, filename):
@@ -72,11 +79,11 @@ if __name__ == "__main__":
     # =================================================
     one_channel_im = np.random.random((30,28))# not square to test if line and col are being kept in order
     rgb_im_first = to_rgb_channel_first(one_channel_im)
-    assert rgb_im_first.shape[0] == 3, f"wrong channel number \nis :{rgb_im_first.shape[0]}, should be 3"
+    assert rgb_im_first.shape[0] == 3, "wrong channel number \nis :{}, should be 3".format(rgb_im_first.shape[0])
     assert rgb_im_first.shape[1] == 30, "n_line is not the same"
 
     rgb_im_last = channel_first_to_channel_last(rgb_im_first)
-    assert rgb_im_last.shape[2] == 3, f"wrong channel number \nis : {rgb_im_last.shape[2]}, should be : 3"
+    assert rgb_im_last.shape[2] == 3, "wrong channel number \nis : {}, should be : 3".format(rgb_im_last.shape[2])
     assert rgb_im_last.shape[0] == 30, "n_line is not the same"
 
     # Create image with channel being the last dimension
@@ -84,11 +91,11 @@ if __name__ == "__main__":
     # =================================================
     one_channel_im = np.random.random((30,28))
     rgb_im_last = to_rgb_channel_last(one_channel_im)
-    assert rgb_im_last.shape[2] == 3, f"wrong channel number \nis :{rgb_im_last.shape[2]}, should be 3"
+    assert rgb_im_last.shape[2] == 3, "wrong channel number \nis :{}, should be 3".format(rgb_im_last.shape[2])
     assert rgb_im_last.shape[0] == 30, "n_line is not the same"
 
     rgb_im_first = channel_last_to_channel_first(rgb_im_last)
-    assert rgb_im_first.shape[0] == 3, f"wrong channel number \nis :{rgb_im_first.shape[0]}, should be 3"
+    assert rgb_im_first.shape[0] == 3, "wrong channel number \nis :{}, should be 3".format(rgb_im_first.shape[0])
     assert rgb_im_first.shape[1] == 30, "n_line is not the same"
 
 
@@ -98,16 +105,16 @@ if __name__ == "__main__":
     # Create image with channel being the first dimension
     one_channel_im_batch = np.random.random((4, 30,28))# not square to test if line and col are being kept in order
     rgb_im_first = to_rgb_channel_first(one_channel_im_batch)
-    assert rgb_im_first.shape[0] == 4, f"wrong batch number \nis :{rgb_im_first.shape[0]}, should be 4"
-    assert rgb_im_first.shape[1] == 3, f"wrong channel number \nis :{rgb_im_first.shape[1]}, should be 3"
+    assert rgb_im_first.shape[0] == 4, "wrong batch number \nis :{}, should be 4".format(rgb_im_first.shape[0])
+    assert rgb_im_first.shape[1] == 3, "wrong channel number \nis :{}, should be 3".format(rgb_im_first.shape[1])
     assert rgb_im_first.shape[2] == 30, "n_line is not the same"
 
     # Create image with channel being the last dimension
     # =================================================
     one_channel_im_batch = np.random.random((5, 30,28))
     rgb_im_last = to_rgb_channel_last(one_channel_im_batch)
-    assert rgb_im_last.shape[0] == 5, f"wrong batch number \nis :{rgb_im_last.shape[0]}, should be 4"
-    assert rgb_im_last.shape[3] == 3, f"wrong channel number \nis :{rgb_im_last.shape[3]}, should be 3"
+    assert rgb_im_last.shape[0] == 5, "wrong batch number \nis :{}, should be 4".format(rgb_im_last.shape[0])
+    assert rgb_im_last.shape[3] == 3, "wrong channel number \nis :{}, should be 3".format(rgb_im_last.shape[3])
     assert rgb_im_last.shape[1] == 30, "n_line is not the same"
 
     print("Tests ok.")
