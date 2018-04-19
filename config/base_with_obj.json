@@ -5,7 +5,8 @@
     "n_row": 5,
     "n_col": 4,
     "state_type" : "surrounding",
-    "reward_type" : "fixed",
+    "change_maze" : 5,
+    "maze_type" : "sequential",
     "objective" : {
       "type" : "image",
       "curriculum":
@@ -19,6 +20,16 @@
   "optim": {
     "learning_rate" : 1e-4,
     "n_episode" : 100
+  },
+  "dqn_params":
+    {
+      "input_resolution": [28, 28],
+      "n_channels": 15,
+      "conv_shapes": [16],
+      "dense_shapes": [],
+      "learning_rate" : 1e-6,
+      "optimizer": "RMSprop",
+      "use_batch_norm": "False"
   },
   "seed": 42
 }

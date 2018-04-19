@@ -15,17 +15,15 @@ class ImageGridWorld(object):
     def __init__(self, config, show=False):
 
         # Todo : load them from a file
-        self.mean_per_channel = np.array([0.0441002, 0.0441002, 0.01040499])
-        self.std_per_channel = np.array([0.19927699,  0.19927699,  0.08861534])
+        # See compute_norm_img.py for details
+        self.mean_per_channel = np.array([0.5450519,   0.88200397,  0.54505189])
+        self.std_per_channel = np.array([0.35243599, 0.23492979,  0.33889725])
 
 
         self.n_row = config["n_row"]
         self.n_col = config["n_col"]
         self.position = []
 
-        # Count the number of time the current objective
-        self.count_current_objective = 0
-        self.count_current_objective_success = 0
 
         (self.digits_im, self.digits_labels), (_, _) = mnist.load_data()
         (self.fashion_im, self.fashion_labels), (_, _) = fashion_mnist.load_data()
@@ -39,7 +37,8 @@ class ImageGridWorld(object):
         self.create_background(show=False)
 
         self.grid = []
-        self.create_grid_of_image(grid_type="all_diff", show=show)
+        self.grid_type = config["maze_type"]
+        self.create_grid_of_image(show=show)
 
         # ========== What does a state correspond to ? ===========
         # =========================================================
@@ -72,7 +71,7 @@ class ImageGridWorld(object):
             elif objective_type == "text":
                 self.get_objective_state = self._get_text_objective
             else:
-                raise Exception(f"objective type must be 'fixed', 'text' or 'image', not {objective_type}")
+                raise Exception("objective type must be 'fixed', 'text' or 'image', not {}".format(objective_type))
 
             # Changing the number of state you're alternating with, and the speed at which you change objective
             #all_objective = list(itertools.product(range(self.n_row), range(self.n_col)))
@@ -86,6 +85,13 @@ class ImageGridWorld(object):
 
             self.post_process = self._change_objective
 
+        # ==================== Maze Type ==========================
+        # =========================================================
+
+        # Count the number of time the current objective
+        self.count_current_objective = 0  # To enable changing objectives every 'n' step
+        self.count_ep_in_this_maze = 0  # To change maze every 'n' step
+        self.change_maze_every_n = float("inf") if config["change_maze"]==0 else config["change_maze"]
 
     def get_state(self):
         state = dict()
@@ -109,6 +115,14 @@ class ImageGridWorld(object):
             self.count_current_objective += 1
 
     def reset(self):
+        # TODO : change maze every n step ?
+        if self.count_ep_in_this_maze >= self.change_maze_every_n:
+            self.create_grid_of_image(show=True)
+            self.count_ep_in_this_maze = 0
+        else:
+            self.count_ep_in_this_maze += 1
+
+
 
         position_on_reward = True
         while position_on_reward:
@@ -193,7 +207,7 @@ class ImageGridWorld(object):
     def render(self, display=True):
         """
         This function print the board and the position of the agent
-        ONLY in this function, the image format is (H,W,C) (changed at the beginning)
+        ONLY in this function, the image format is (H,W,C)
         """
 
         custom_grid = np.copy(self.grid_plot)
@@ -224,9 +238,10 @@ class ImageGridWorld(object):
         shown_grid = shown_grid.transpose([2, 0, 1])
         return shown_grid
 
-    def create_grid_of_image(self, grid_type="all_diff", show=False):
+    def create_grid_of_image(self, show=False):
 
-        if grid_type == "all_diff":
+        grid_type = self.grid_type
+        if grid_type == "sequential":
             self.grid = np.zeros((self.n_row, self.n_col, 3, self.size_img[0], self.size_img[1]))
             grid_plot = np.zeros((self.n_row, self.n_col, self.size_img[0], self.size_img[1], 3))
 
@@ -237,7 +252,7 @@ class ImageGridWorld(object):
                     image_selected_channel_last = self.load_random_image_per_class(class_id=count,
                                                                       background_color=background_color,
                                                                       show=False)
-
+                    # save image in format (h,w,c)
                     grid_plot[i,j] = image_selected_channel_last
 
                     # Normalize image
@@ -250,6 +265,7 @@ class ImageGridWorld(object):
             #self.create_grid_plot(grid_plot)
 
         else:
+            # Todo : TSNE order
             raise NotImplementedError("Only all_diff is available at the moment")
 
         if show :
@@ -306,8 +322,15 @@ class ImageGridWorld(object):
 
 
     def normalize(self, im):
-        im = im - self.mean_per_channel[np.newaxis, np.newaxis, :]
-        im = im / self.std_per_channel[np.newaxis, np.newaxis, :]
+
+        # plot_single_image(im)
+
+        im[:,:,0] = (im[:,:,0] - self.mean_per_channel[0]) / self.std_per_channel[0]
+        im[:,:,1] = (im[:,:,1] - self.mean_per_channel[1]) / self.std_per_channel[1]
+        im[:,:,2] = (im[:,:,2] - self.mean_per_channel[2]) / self.std_per_channel[2]
+
+        # plot_single_image(im)
+
         return im
 
     def action_space(self):
@@ -316,7 +339,34 @@ class ImageGridWorld(object):
 
 if __name__ == "__main__":
 
-    config = {"n_row":5, "n_col":4, "state_type":"surrounding", "reward_type":"fixed"}
+    from torchvision import transforms
+
+    config = {"n_row":5,
+              "n_col":4,
+              "state_type":"surrounding",
+              "objective":{
+                  "type":"fixed"
+                }
+              }
     maze = ImageGridWorld(config=config, show=True)
-    print(maze.size_vector)
-    print(maze.size_img)
+
+    im = np.ones((2,2,3))
+    im[:,:,0] = 1
+    im[:,:,1] = 0.5
+    im[:,:,2] = 0.2
+    print("im =", im)
+
+    ret = maze.normalize(im)
+    print("perso = ",ret)
+
+    im = np.ones((2,2,3))
+    im[:,:,0] = 1
+    im[:,:,1] = 0.5
+    im[:,:,2] = 0.2
+    pipe = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Normalize(maze.mean_per_channel, maze.std_per_channel)
+        ])
+
+    ret = pipe(img=im*255)
+    print("pytorch = ", ret)

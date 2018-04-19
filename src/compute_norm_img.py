@@ -13,6 +13,7 @@ fused_dataset = np.concatenate([digits_im, fashion_im], axis=0)
 black_area = np.where(fused_dataset < 10)
 
 fused_dataset = to_rgb_channel_last(fused_dataset)/255
+print("mean dataset", fused_dataset.mean(axis=(0,1,2)))
 
 n_row = 5
 n_col = 4
@@ -24,23 +25,31 @@ background = np.ones((3, n_row, n_col))
 background[0, :, :] = np.tile(np.linspace(0, 1, n_col), (n_row, 1))
 background[2, :, :] = np.tile(np.linspace(1, 0, n_row), (n_col, 1)).T
 
-count = 0
-for line,col in itertools.product(range(n_row), range(n_col)):
+for count, (line,col) in enumerate(itertools.product(range(n_row), range(n_col))):
+    print(count)
     color = background[:, line, col]
-    print(color)
+    print("color", color)
     current_dataset = np.copy(fused_dataset)
     current_dataset[black_area] = color
 
-    a = current_dataset[1000]
-    plt.imshow(a)
-    plt.show()
+    a = current_dataset[10000]
+    print("center", a[14,14,:])
+    print("corner", a[0,0,:])
+
+    # plt.imshow(a)
+    # plt.show()
 
     big_dataset[num_sample*count:num_sample*(count+1), :, :, :] = current_dataset
 
+# plt.imshow(big_dataset[100])
+# plt.show()
+# plt.imshow(big_dataset[1000])
+# plt.show()
+# plt.imshow(big_dataset[1000000])
+# plt.show()
 
 #mean = np.mean(big_dataset, axis=(0,1,2))
-#[ 0.0441002   0.0441002   0.01040499]
+#print(mean)
 
-#std = np.std(big_dataset, axis=(0,1,2))
-#[ 0.19927699  0.19927699  0.08861534]
-# print(std)
+std = np.std(big_dataset, axis=(0,1,2))
+print(std)
