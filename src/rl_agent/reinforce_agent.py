@@ -13,7 +13,7 @@ from .dqn_models import SoftmaxDQN
 import logging
 from copy import deepcopy
 
-# logging.basicConfig(level=logging.DEBUG)
+
 
 # GPU compatibility setup
 use_cuda = torch.cuda.is_available()
@@ -27,12 +27,16 @@ class ReinforceAgent(object):
     def __init__(self, config, n_action):
         self.forward_model = SoftmaxDQN(config, n_action).cuda()
         self.n_action = n_action
-        self.gamma = 0.99
-        self.saved_log_probs_epoch = []
-        self.rewards_epoch = []
+        self.gamma = config['gamma']
+        self.update_every = config['reinforce_update_every']
         self.last_loss = np.nan
-        self.policy_loss = []
-        self.rewards = []
+        self.win_history = []
+        self.rewards_epoch = []
+        self.rewards_replay = []
+        self.states_epoch = []
+        self.actions_epoch = []
+        self.states_replay = []
+        self.actions_replay = []
 
     def apply_config(self, config):
         pass
@@ -45,23 +49,43 @@ class ReinforceAgent(object):
             R = r + self.gamma * R
             rewards.insert(0, R)
 
-        rewards = Tensor(rewards)
-        rewards = (rewards - rewards.mean()) / (rewards.std() + np.finfo(np.float32).eps)
+        if np.any(np.array(self.rewards_epoch) > 0):
+            self.win_history.append(1)
+        else:
+            self.win_history.append(0)
 
-        for log_prob, reward in zip(self.saved_log_probs_epoch, rewards):
-            self.policy_loss.append(-log_prob * reward)
-
-        self.saved_log_probs_epoch = []
+        self.rewards_replay.extend(rewards)
+        self.states_replay.extend(self.states_epoch)
+        self.actions_replay.extend(self.actions_epoch)
         self.rewards_epoch = []
+        self.states_epoch = []
+        self.actions_epoch = []
 
-        update_every = 32
-        if epoch % update_every == 0:
-            logging.info('Epoch {} : mean reward {}'.format(epoch, np.sum(self.rewards) / update_every))
-            self.rewards = []
+
+        if epoch % self.update_every == 0 and epoch != 0:
+            logging.info('Epoch {} : fraction of exits since last update {}'.format(epoch, np.sum(self.win_history) / self.update_every))
+            self.win_history = []
+
+            rewards = Tensor(self.rewards_replay)
+            rewards = (rewards - rewards.mean()) / (rewards.std() + np.finfo(np.float32).eps)
+
+            actions = LongTensor(self.actions_replay)
+            states = torch.cat(self.states_replay)
+            log_probs = torch.log(self.forward_model(Variable(states))).gather(1, Variable(actions.view(-1, 1))).squeeze(1)
+
+            policy_loss = []
+            for log_prob, reward in zip(log_probs, rewards):
+                policy_loss.append(-log_prob * reward)
+
+            self.rewards_replay = []
+            self.actions_replay = []
+            self.states_replay = []
+
             old_params = freeze_as_np_dict(self.forward_model.state_dict())
+
+            policy_loss = torch.cat(policy_loss).sum()
             self.forward_model.optimizer.zero_grad()
-            policy_loss = torch.cat(self.policy_loss).sum()
-            policy_loss.backward()
+            policy_loss.backward(retain_graph=False)
             for param in self.forward_model.parameters():
                 logging.debug(param.grad.data.sum())
                 param.grad.data.clamp_(-1., 1.)
@@ -75,17 +99,17 @@ class ReinforceAgent(object):
 
     def forward(self, state, epsilon=0.1):
         # Epsilon has no influence, keep it for compatibility
-        state = state['env_state']
-        state = FloatTensor(state)
-        if len(state.shape) == 3:
-            state = state.unsqueeze(0)
-        probs = self.forward_model(Variable(state).type(FloatTensor))
+        state_loc = state['env_state']
+        state_loc = FloatTensor(state_loc)
+        state_loc = state_loc.unsqueeze(0)
+        probs = self.forward_model(Variable(state_loc, volatile=True))
         m = Categorical(probs)
         action = m.sample()
-        self.saved_log_probs_epoch.append(m.log_prob(action))
         return action.data[0]
 
     def optimize(self, state, action, next_state, reward, batch_size=16):
+        # Just store all relevant info to do batch learning at end of epoch
         self.rewards_epoch.append(reward)
-        self.rewards.append(reward)
+        self.actions_epoch.append(action)
+        self.states_epoch.append(Tensor(state['env_state']).unsqueeze(0))
         return self.last_loss

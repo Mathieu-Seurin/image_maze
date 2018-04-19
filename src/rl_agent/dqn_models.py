@@ -48,7 +48,7 @@ class DQN(nn.Module):
             if idx < len(self.dense_shapes)-1:
                 dense_layers.append(nn.ReLU())
                 if self.use_batch_norm:
-                    dense_layers.append(nn.BatchNorm2d(shape))
+                    dense_layers.append(nn.BatchNorm1d(shape))
             tmp = shape
         self.dense_layers = dense_layers
 
@@ -60,6 +60,8 @@ class DQN(nn.Module):
 
         if config['optimizer'] == 'RMSprop':
             self.optimizer = optim.RMSprop(self.parameters(), lr=self.lr)
+        elif config['optimizer'] == 'Adam':
+            self.optimizer = optim.Adam(self.parameters(), lr=self.lr)
         else:
             assert False, 'Optimizer not recognized'
 
@@ -122,7 +124,8 @@ class SoftmaxDQN(nn.Module):
             if idx < len(self.dense_shapes)-1:
                 dense_layers.append(nn.ReLU())
                 if self.use_batch_norm:
-                    dense_layers.append(nn.BatchNorm2d(shape))
+                    # dense_layers.append(nn.BatchNorm1d(shape))
+                    print('BatchNorm in dense layers not working')
             else:
                 dense_layers.append(nn.Softmax(dim=1))
             tmp = shape
@@ -136,6 +139,8 @@ class SoftmaxDQN(nn.Module):
 
         if config['optimizer'] == 'RMSprop':
             self.optimizer = optim.RMSprop(self.parameters(), lr=self.lr)
+        elif config['optimizer'] == 'Adam':
+            self.optimizer = optim.Adam(self.parameters(), lr=self.lr)
         else:
             assert False, 'Optimizer not recognized'
 

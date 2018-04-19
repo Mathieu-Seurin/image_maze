@@ -43,6 +43,9 @@ def freeze_as_np_dict(tensor_dict):
 def check_params_changed(dict1, dict2):
     "Takes two parameters dict (key:torchtensor) and prints a warning if identical"
     for key in dict1.keys():
+        if key.split('.')[-1] in ['running_mean', 'running_var']:
+            # No message if this is for BatchNorm
+            continue
         tmp1 = dict1[key]
         tmp2 = dict2[key]
         if np.max(np.abs(tmp1 - tmp2))==0:

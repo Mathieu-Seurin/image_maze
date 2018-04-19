@@ -83,8 +83,9 @@ def train(agent, env, save_path, n_epochs, epsilon_init=1., epsilon_schedule='ex
 
         agent.callback(epoch)
 
-        # logging.info('Epoch {}: loss= {}, reward= {}, duration= {}'.format(
-        #     epoch, np.mean(epoch_losses), np.sum(epoch_rewards), len(epoch_rewards)))
+        if epoch % 50 == 0:
+            logging.info('Epoch {}: loss= {}, reward= {}, duration= {}'.format(
+                epoch, np.mean(epoch_losses), np.sum(epoch_rewards), len(epoch_rewards)))
         losses.append(np.mean(epoch_losses))
         rewards.append(np.sum(epoch_rewards))
 
@@ -135,3 +136,5 @@ def test(agent, env, n_epochs, display=False):
 
 train(rl_agent, env, save_path, n_episode)
 test(rl_agent, env, 256, display=False)
+
+# For reference, the random agent does 60% exits with mean duration 12
