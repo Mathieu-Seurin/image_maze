@@ -114,10 +114,10 @@ class ImageGridWorld(object):
         else:
             self.count_current_objective += 1
 
-    def reset(self):
+    def reset(self, show=True):
         # TODO : change maze every n step ?
         if self.count_ep_in_this_maze >= self.change_maze_every_n:
-            self.create_grid_of_image(show=True)
+            self.create_grid_of_image(show=show)
             self.count_ep_in_this_maze = 0
         else:
             self.count_ep_in_this_maze += 1

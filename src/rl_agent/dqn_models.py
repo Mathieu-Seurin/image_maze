@@ -27,6 +27,7 @@ class DQN(nn.Module):
         self.dense_shapes = config['dense_shapes'] + [self.output_size]
         self.use_batch_norm = config['use_batch_norm'] == 'True'
         self.lr = config['learning_rate']
+        self.gamma = config['gamma']
 
         # At least 1 conv, then dense head
         for idx, shape in enumerate(self.conv_shapes):
@@ -87,6 +88,7 @@ class DQN(nn.Module):
         x = self._forward_conv(x)
         x = x.view(x.size(0), -1)
         return self._forward_dense(x)
+
 
 class SoftmaxDQN(nn.Module):
 

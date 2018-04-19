@@ -32,13 +32,13 @@ class DQNAgent(object):
 
         self.n_action = n_action
         self.memory = ReplayMemory(2048)
-        self.gamma = 0.99
+        self.gamma = self.forward_model.gamma
 
     def apply_config(self, config):
         pass
 
     def callback(self, epoch):
-        if epoch % 10 == 1:
+        if epoch % 3 == 0:
             self.ref_model.load_state_dict(self.forward_model.state_dict())
 
     def forward(self, state, epsilon=0.1):

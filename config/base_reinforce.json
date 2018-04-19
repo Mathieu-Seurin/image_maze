@@ -5,6 +5,8 @@
     "n_row": 5,
     "n_col": 4,
     "state_type" : "surrounding",
+    "change_maze" : 5,
+    "maze_type" : "sequential",
     "objective" : {
       "type" : "fixed",
       "curriculum":
@@ -20,16 +22,18 @@
     "n_episode" : 1500
   },
   "seed": 24,
+  "verbosity": 50,
+  "gif_verbosity": 20,
   "dqn_params":
   {
   "input_resolution": [28, 28],
   "n_channels": 15,
   "gamma":0.99,
-  "reinforce_update_every": 50,
   "conv_shapes": [16],
   "dense_shapes": [],
   "learning_rate" : 1e-3,
   "optimizer": "Adam",
-  "use_batch_norm": "True"
+  "use_batch_norm": "True",
+  "reinforce_update_every": 50
   }
 }
