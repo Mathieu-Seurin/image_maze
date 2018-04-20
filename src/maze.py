@@ -27,8 +27,10 @@ class ImageGridWorld(object):
         self.position = []
 
 
-        (self.digits_im, self.digits_labels), (_, _) = mnist.load_data()
-        (self.fashion_im, self.fashion_labels), (_, _) = fashion_mnist.load_data()
+        # The first tuple correspond to the "train" images that will be used for pretrain network
+        # So we don't use them for the maze
+        (_, _), (self.digits_im, self.digits_labels) = mnist.load_data()
+        (_, _), (self.fashion_im, self.fashion_labels) = fashion_mnist.load_data()
 
         self.size_img = self.fashion_im[0].shape
         self.size_vector = self.size_img[0]*self.size_img[1]
@@ -143,13 +145,14 @@ class ImageGridWorld(object):
             self.count_current_objective += 1
 
     def reset(self):
-        # Change maze every n step ?
+        # Change maze every n step
         if self.count_ep_in_this_maze >= self.change_maze_every_n:
             self.create_grid_of_image(show=True)
             self.count_ep_in_this_maze = 0
         else:
             self.count_ep_in_this_maze += 1
 
+        # Set begin position at random, not on the goal
         position_on_reward = True
         while position_on_reward:
             y = np.random.randint(self.n_row-1)
