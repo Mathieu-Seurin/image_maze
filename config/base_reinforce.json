@@ -1,14 +1,15 @@
 {
   "name": "basic_config",
+  "agent_type":"reinforce",
   "env_type":
   {
     "n_row": 5,
     "n_col": 4,
     "state_type" : "surrounding",
-    "change_maze" : 5,
+    "change_maze" : 0,
     "maze_type" : "sequential",
     "objective" : {
-      "type" : "fixed",
+      "type" : "image",
       "curriculum":
       {
         "n_objective" : 3,
@@ -18,7 +19,8 @@
     }
   },
   "optim": {
-    "learning_rate" : 1e-4,
+    "epsilon_schedule": ["exp", 1],
+    "batch_size": 32,
     "n_episode" : 1500
   },
   "seed": 24,
@@ -26,8 +28,9 @@
   "gif_verbosity": 20,
   "dqn_params":
   {
+  "concatenate_objective": "True",
   "input_resolution": [28, 28],
-  "n_channels": 15,
+  "n_channels": 18,
   "gamma":0.99,
   "conv_shapes": [16],
   "dense_shapes": [],

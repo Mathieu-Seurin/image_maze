@@ -49,7 +49,8 @@ class DQN(nn.Module):
             if idx < len(self.dense_shapes)-1:
                 dense_layers.append(nn.ReLU())
                 if self.use_batch_norm:
-                    dense_layers.append(nn.BatchNorm1d(shape))
+                    logging.info('BatchNorm in dense head gives issues')
+                    # dense_layers.append(nn.BatchNorm1d(shape))
             tmp = shape
         self.dense_layers = dense_layers
 

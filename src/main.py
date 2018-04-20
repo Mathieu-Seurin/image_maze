@@ -20,43 +20,38 @@ parser.add_argument("-config", type=str, help="Which file correspond to the expe
 parser.add_argument("-extension", type=str, help="Do you want to override parameters in the config file ?")
 parser.add_argument("-display", type=str, help="Display images or not")
 
-
-# Args parser, logging, config
-# ===========================
 args = parser.parse_args()
 # Load_config also creates logger inside (INFO to stdout, INFO to train.log)
 config, exp_identifier, save_path = load_config_and_logger(config_file=args.config,
-                                                exp_dir=args.exp_dir,
-                                                args=args,
-                                                extension_file=args.extension)
+                    exp_dir=args.exp_dir, args=args, extension_file=args.extension)
 logging = logging.getLogger()
 
-
-# Environment
-# ===========
 env = ImageGridWorld(config=config["env_type"], show=False)
-# Agent
-# =====
 
-# Todo : agent factory that loads the good agent based on config file
+if config["agent_type"] == 'random':
+    rl_agent = AbstractAgent(config, env.action_space())
+elif config["agent_type"] == 'dqn':
+    rl_agent = DQNAgent(config['dqn_params'], env.action_space())
+elif config["agent_type"] == 'reinforce':
+    rl_agent = ReinforceAgent(config['dqn_params'], env.action_space())
+else:
+    assert False, "Wrong agent type : {}".format(config["agent_type"])
 
-# rl_agent = AbstractAgent(config, env.action_space())
-rl_agent = DQNAgent(config['dqn_params'], env.action_space())
-# rl_agent = ReinforceAgent(config['dqn_params'], env.action_space())
+n_epochs = config["optim"]["n_episode"]
+batch_size = config["optim"]["batch_size"]
+epsilon_schedule = config["optim"]["epsilon_schedule"][0]
+epsilon_init = config["optim"]["epsilon_schedule"][1]
 
-
-n_episode = config["optim"]["n_episode"]
 verbosity = config["verbosity"]
 gif_verbosity = config["gif_verbosity"]
-# To be modified for improved config
-def train(agent, env, save_path, n_epochs, epsilon_init=1., epsilon_schedule='exp', eps_decay=None, lr=0.001, batch_size=32):
+
+def train(agent, env):
     if epsilon_schedule == 'linear':
         eps_range = np.linspace(epsilon_init, 0., n_epochs)
     elif epsilon_schedule=='constant':
         eps_range = [epsilon_init for _ in range(n_epochs)]
     elif epsilon_schedule=='exp':
-        if not eps_decay:
-            eps_decay = n_epochs / 2.
+        eps_decay = n_epochs / 4.
         eps_range = [epsilon_init * np.exp(-1. * i / eps_decay) for i in range(n_epochs)]
 
     losses, rewards = [], []
@@ -78,7 +73,6 @@ def train(agent, env, save_path, n_epochs, epsilon_init=1., epsilon_schedule='ex
             next_state, reward, done, _ = env.step(action)
             loss = agent.optimize(state, action, next_state, reward, batch_size=batch_size)
             state = next_state
-
 
             epoch_losses.append(loss)
             epoch_rewards.append(reward)
@@ -104,11 +98,11 @@ def train(agent, env, save_path, n_epochs, epsilon_init=1., epsilon_schedule='ex
                     f.write(str(r)+'\n')
             rewards = []
 
-def test(agent, env, n_epochs, display=False):
+def test(agent, env):
     lengths, rewards = [], []
 
-    for epoch in range(n_epochs):
-        state = env.reset(show=display)
+    for epoch in range(512):
+        state = env.reset(show=False)
         done = False
         video = []
         time_out = 20
@@ -136,8 +130,5 @@ def test(agent, env, n_epochs, display=False):
 
         logging.info('Mean reward :{}, mean duration :{}'.format(np.mean(rewards), np.mean(lengths)))
 
-train(rl_agent, env, save_path, n_episode, batch_size=50)
-test(rl_agent, env, 256, display=False)
-
-# For reference, the random agent does 60% exits with mean duration 12
-# The optimal is 100% exits and duration 2.31
+train(rl_agent, env)
+test(rl_agent, env)
