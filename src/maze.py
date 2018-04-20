@@ -4,12 +4,12 @@ from copy import copy
 import random
 import itertools
 import time
-
 import matplotlib
-#matplotlib.use('Qt5Agg')
 import matplotlib.pyplot as plt
-
 from image_utils import to_rgb_channel_first, to_rgb_channel_last, channel_last_to_channel_first, channel_first_to_channel_last, plot_single_image
+
+# TODO : make test reproducible
+
 
 class ImageGridWorld(object):
     def __init__(self, config, show=False):

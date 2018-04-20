@@ -105,7 +105,7 @@ def test(agent, env):
         state = env.reset(show=False)
         done = False
         video = []
-        time_out = 20
+        time_out = 5
         time = 0
         epoch_rewards = []
 
