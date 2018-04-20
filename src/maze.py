@@ -38,7 +38,7 @@ class ImageGridWorld(object):
         self.background = []
         self.create_background(show=False)
 
-        self.grid = [] # Grid containing an image on each square of the board
+        self.maze_grid = [] # Grid containing an image on each square of the board
         self.grid_class = [] # Grid containing the class of the state (0 : digit 0, 1: digit 1 ..., 19 : boots)
         self.current_objective = None
 
@@ -117,7 +117,7 @@ class ImageGridWorld(object):
         if self.current_objective is None:
 
             if self.objective_image_type == "case":
-                img_objective = self.grid[x,y]
+                img_objective = self.maze_grid[x, y]
 
             elif self.objective_image_type == "category" :
                 objective_class = self.grid_class[x,y]
@@ -199,22 +199,22 @@ class ImageGridWorld(object):
         self.observation[ :3, :, :] = self.get_current_square()
 
         if x+1 < self.n_row : #North
-            self.observation[3:6, :, :] = self.grid[x+1, y]
+            self.observation[3:6, :, :] = self.maze_grid[x + 1, y]
         else:
             self.observation[3:6, :, :] = self.black_image
 
         if x-1 >= 0 : #South
-            self.observation[6:9, :, :] = self.grid[x-1, y]
+            self.observation[6:9, :, :] = self.maze_grid[x - 1, y]
         else:
             self.observation[6:9, :, :] = self.black_image
 
         if y-1 >= 0 : #East
-            self.observation[9:12, :, :] = self.grid[x, y-1]
+            self.observation[9:12, :, :] = self.maze_grid[x, y - 1]
         else:
             self.observation[9:12, :, :] = self.black_image
 
         if y+1 < self.n_col : #West
-            self.observation[12:15, :, :] = self.grid[x, y+1]
+            self.observation[12:15, :, :] = self.maze_grid[x, y + 1]
         else:
             self.observation[12:15, :, :] = self.black_image
 
@@ -222,7 +222,7 @@ class ImageGridWorld(object):
 
     def get_current_square(self):
         x,y = self.position
-        return self.grid[x,y]
+        return self.maze_grid[x, y]
 
     def get_reward(self):
         if np.all(self.position == self.reward_position):
@@ -268,9 +268,9 @@ class ImageGridWorld(object):
 
         grid_type = self.grid_type
         if grid_type == "sequential":
-            self.grid = np.zeros((self.n_row, self.n_col, 3, self.size_img[0], self.size_img[1]))
+            self.maze_grid = np.zeros((self.n_row, self.n_col, 3, self.size_img[0], self.size_img[1]))
             self.grid_class = np.zeros((self.n_row, self.n_col))
-            grid_plot = np.zeros((self.n_row, self.n_col, self.size_img[0], self.size_img[1], 3))
+            self.grid_plot = np.zeros((self.n_row, self.n_col, self.size_img[0], self.size_img[1], 3))
 
             count = 0
             for i in range(self.n_row):
@@ -280,14 +280,11 @@ class ImageGridWorld(object):
                                                                       background_color=background_color,
                                                                       show=False)
                     # save image in format (h,w,c)
-                    grid_plot[i,j] = image_display_channel_last
-                    self.grid[i, j] = image_normalized_channel_first
+                    self.grid_plot[i,j] = image_display_channel_last
+                    self.maze_grid[i, j] = image_normalized_channel_first
 
                     self.grid_class[i, j] = count # to indicate what is the class of the image present in this case
                     count += 1
-
-            self.grid_plot = grid_plot
-            #self.create_grid_plot(grid_plot)
 
         else:
             # Todo : TSNE order
@@ -350,6 +347,8 @@ class ImageGridWorld(object):
 
 
     def normalize(self, im):
+
+        assert im.shape[2] == 3, "rbg channel need to be last"
 
         # plot_single_image(im)
 

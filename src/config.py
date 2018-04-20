@@ -106,10 +106,10 @@ if __name__ == "__main__":
 
     print("TESTING EXTENSION")
 
-    config_location = "config/{}"
+    config_location = "config/unittest_config/{}"
     config_file = config_location.format("base_test.json")
     extension_file = config_location.format("extension_test.json")
-    load_config_extended(config_file=config_file,
-                         extension_file=extension_file,
-                         exp_dir="out/",
-                         args=None)
+    ext, hashed_id = load_config_extended(config_file=config_file,
+                         extension_file=extension_file)
+
+    print(ext)
