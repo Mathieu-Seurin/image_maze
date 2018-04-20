@@ -8,7 +8,8 @@
     "change_maze" : 0,
     "maze_type" : "sequential",
     "objective" : {
-      "type" : "image",
+      "modality" : "image",
+      "objective_image": "category",
       "curriculum":
       {
         "n_objective" : 3,
