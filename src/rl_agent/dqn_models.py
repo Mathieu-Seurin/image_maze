@@ -27,6 +27,7 @@ class DQN(nn.Module):
         self.dense_shapes = config['dense_shapes'] + [self.output_size]
         self.use_batch_norm = config['use_batch_norm'] == 'True'
         self.lr = config['learning_rate']
+        self.gamma = config['gamma']
 
         # At least 1 conv, then dense head
         for idx, shape in enumerate(self.conv_shapes):
@@ -48,7 +49,7 @@ class DQN(nn.Module):
             if idx < len(self.dense_shapes)-1:
                 dense_layers.append(nn.ReLU())
                 if self.use_batch_norm:
-                    dense_layers.append(nn.BatchNorm2d(shape))
+                    dense_layers.append(nn.BatchNorm1d(shape))
             tmp = shape
         self.dense_layers = dense_layers
 
@@ -60,6 +61,8 @@ class DQN(nn.Module):
 
         if config['optimizer'] == 'RMSprop':
             self.optimizer = optim.RMSprop(self.parameters(), lr=self.lr)
+        elif config['optimizer'] == 'Adam':
+            self.optimizer = optim.Adam(self.parameters(), lr=self.lr)
         else:
             assert False, 'Optimizer not recognized'
 
@@ -85,6 +88,7 @@ class DQN(nn.Module):
         x = self._forward_conv(x)
         x = x.view(x.size(0), -1)
         return self._forward_dense(x)
+
 
 class SoftmaxDQN(nn.Module):
 
@@ -122,7 +126,8 @@ class SoftmaxDQN(nn.Module):
             if idx < len(self.dense_shapes)-1:
                 dense_layers.append(nn.ReLU())
                 if self.use_batch_norm:
-                    dense_layers.append(nn.BatchNorm2d(shape))
+                    # dense_layers.append(nn.BatchNorm1d(shape))
+                    print('BatchNorm in dense layers not working')
             else:
                 dense_layers.append(nn.Softmax(dim=1))
             tmp = shape
@@ -136,6 +141,8 @@ class SoftmaxDQN(nn.Module):
 
         if config['optimizer'] == 'RMSprop':
             self.optimizer = optim.RMSprop(self.parameters(), lr=self.lr)
+        elif config['optimizer'] == 'Adam':
+            self.optimizer = optim.Adam(self.parameters(), lr=self.lr)
         else:
             assert False, 'Optimizer not recognized'
 

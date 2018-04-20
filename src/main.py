@@ -41,11 +41,13 @@ env = ImageGridWorld(config=config["env_type"], show=False)
 # Todo : agent factory that loads the good agent based on config file
 
 # rl_agent = AbstractAgent(config, env.action_space())
-# rl_agent = DQNAgent(config['dqn_params'], env.action_space())
-rl_agent = ReinforceAgent(config['dqn_params'], env.action_space())
+rl_agent = DQNAgent(config['dqn_params'], env.action_space())
+# rl_agent = ReinforceAgent(config['dqn_params'], env.action_space())
 
 
 n_episode = config["optim"]["n_episode"]
+verbosity = config["verbosity"]
+gif_verbosity = config["gif_verbosity"]
 # To be modified for improved config
 def train(agent, env, save_path, n_epochs, epsilon_init=1., epsilon_schedule='exp', eps_decay=None, lr=0.001, batch_size=32):
     if epsilon_schedule == 'linear':
@@ -54,13 +56,13 @@ def train(agent, env, save_path, n_epochs, epsilon_init=1., epsilon_schedule='ex
         eps_range = [epsilon_init for _ in range(n_epochs)]
     elif epsilon_schedule=='exp':
         if not eps_decay:
-            eps_decay = n_epochs / 4.
+            eps_decay = n_epochs / 2.
         eps_range = [epsilon_init * np.exp(-1. * i / eps_decay) for i in range(n_epochs)]
 
     losses, rewards = [], []
 
     for epoch in range(n_epochs):
-        state = env.reset()
+        state = env.reset(show=False)
         done = False
         epoch_losses = []
         epoch_rewards = []
@@ -70,8 +72,8 @@ def train(agent, env, save_path, n_epochs, epsilon_init=1., epsilon_schedule='ex
 
         while not done and time < time_out:
             time += 1
-            if epoch % 10 == 1:
-                video.append(env.render(display=args.display))
+            if epoch % gif_verbosity == 0 and epoch != 0:
+                video.append(env.render(display=False))
             action = agent.forward(state, eps_range[epoch])
             next_state, reward, done, _ = env.step(action)
             loss = agent.optimize(state, action, next_state, reward, batch_size=batch_size)
@@ -83,13 +85,14 @@ def train(agent, env, save_path, n_epochs, epsilon_init=1., epsilon_schedule='ex
 
         agent.callback(epoch)
 
-        # logging.info('Epoch {}: loss= {}, reward= {}, duration= {}'.format(
-        #     epoch, np.mean(epoch_losses), np.sum(epoch_rewards), len(epoch_rewards)))
+        if epoch % verbosity == 0 and epoch != 0:
+            logging.info('Epoch {}: loss= {}, reward= {}, duration= {}'.format(
+                epoch, np.mean(epoch_losses), np.sum(epoch_rewards), len(epoch_rewards)))
         losses.append(np.mean(epoch_losses))
         rewards.append(np.sum(epoch_rewards))
 
 
-        if epoch % 10 == 1:
+        if epoch % gif_verbosity == 0 and epoch != 0:
             make_video(video, save_path.format('train_' + str(epoch)))
 
             with open(save_path.format('train_losses'), 'a+') as f:
@@ -105,7 +108,7 @@ def test(agent, env, n_epochs, display=False):
     lengths, rewards = [], []
 
     for epoch in range(n_epochs):
-        state = env.reset()
+        state = env.reset(show=display)
         done = False
         video = []
         time_out = 20
@@ -115,7 +118,7 @@ def test(agent, env, n_epochs, display=False):
         while not done and time < time_out:
             time += 1
             if epoch % 10 == 1:
-                video.append(env.render(display=display))
+                video.append(env.render(display=False))
 
             action = agent.forward(state, 0.)
             next_state, reward, done, _ = env.step(action)
@@ -133,5 +136,8 @@ def test(agent, env, n_epochs, display=False):
 
         logging.info('Mean reward :{}, mean duration :{}'.format(np.mean(rewards), np.mean(lengths)))
 
-train(rl_agent, env, save_path, n_episode)
+train(rl_agent, env, save_path, n_episode, batch_size=50)
 test(rl_agent, env, 256, display=False)
+
+# For reference, the random agent does 60% exits with mean duration 12
+# The optimal is 100% exits and duration 2.31
