@@ -25,7 +25,9 @@ Tensor = FloatTensor
 
 class ReinforceAgent(object):
     def __init__(self, config, n_action):
-        self.forward_model = SoftmaxDQN(config, n_action).cuda()
+        self.forward_model = SoftmaxDQN(config, n_action)
+        if use_cuda:
+            self.forward_model.cuda()
         self.n_action = n_action
         self.gamma = 0.99
         self.saved_log_probs_epoch = []

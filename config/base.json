@@ -8,7 +8,7 @@
     "change_maze" : 5,
     "maze_type" : "sequential",
     "objective" : {
-      "type" : "fixed",
+      "modality" : "fixed",
       "curriculum":
       {
         "n_objective" : 3,

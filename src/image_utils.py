@@ -84,9 +84,12 @@ if __name__ == "__main__":
     assert rgb_im_first.shape[0] == 3, "wrong channel number \nis :{}, should be 3".format(rgb_im_first.shape[0])
     assert rgb_im_first.shape[1] == 30, "n_line is not the same"
 
+    specific_pixel_to_check = np.copy(rgb_im_first[:,20,18])
     rgb_im_last = channel_first_to_channel_last(rgb_im_first)
+    specific_pixel_to_check_new = np.copy(rgb_im_last[20,18,:])
     assert rgb_im_last.shape[2] == 3, "wrong channel number \nis : {}, should be : 3".format(rgb_im_last.shape[2])
     assert rgb_im_last.shape[0] == 30, "n_line is not the same"
+    assert np.all(specific_pixel_to_check == specific_pixel_to_check_new), "pixel changed"
 
     # Create image with channel being the last dimension
     # Then swap for the first
@@ -96,10 +99,12 @@ if __name__ == "__main__":
     assert rgb_im_last.shape[2] == 3, "wrong channel number \nis :{}, should be 3".format(rgb_im_last.shape[2])
     assert rgb_im_last.shape[0] == 30, "n_line is not the same"
 
+    specific_pixel_to_check = np.copy(rgb_im_last[20,18,:])
     rgb_im_first = channel_last_to_channel_first(rgb_im_last)
+    specific_pixel_to_check_new = np.copy(rgb_im_first[:,20,18])
     assert rgb_im_first.shape[0] == 3, "wrong channel number \nis :{}, should be 3".format(rgb_im_first.shape[0])
     assert rgb_im_first.shape[1] == 30, "n_line is not the same"
-
+    assert np.all(specific_pixel_to_check == specific_pixel_to_check_new), "pixel changed"
 
     # Same tests, but for images in batches
     #=======================================
