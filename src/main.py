@@ -37,6 +37,8 @@ elif config["agent_type"] == 'reinforce':
 else:
     assert False, "Wrong agent type : {}".format(config["agent_type"])
 
+
+np.random.seed(config["seed"])
 n_epochs = config["train_params"]["n_epochs"]
 batch_size = config["train_params"]["batch_size"]
 epsilon_schedule = config["train_params"]["epsilon_schedule"][0]

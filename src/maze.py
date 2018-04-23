@@ -86,7 +86,7 @@ class ImageGridWorld(object):
             self.objective_changing_every = config["objective"]["curriculum"]["change_every"]
 
             self.objectives = self.all_objectives[:self.n_objectives]
-            self.reward_position = random.sample(self.objectives, k=1)[0]
+            self.reward_position = self.objectives[np.random.randint(len(self.objectives))]
 
             self.post_process = self._change_objective
 
@@ -126,7 +126,7 @@ class ImageGridWorld(object):
 
     def _change_objective(self):
         if self.count_current_objective >= self.objective_changing_every:
-            self.reward_position = random.sample(self.objectives, k=1)[0]
+            self.reward_position = self.objectives[np.random.randint(len(self.objectives))]
             self.count_current_objective = 1
         else:
             self.count_current_objective += 1
