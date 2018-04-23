@@ -10,7 +10,7 @@
     "change_maze" : 5,
     "maze_type" : "sequential",
     "objective" : {
-      "type" : "image_no_bkg",
+      "type" : "random_image",
       "curriculum":
       {
         "n_objective" : 3,
@@ -22,7 +22,7 @@
   "train_params": {
     "epsilon_schedule": ["exp", 1],
     "batch_size": 32,
-    "n_epochs" : 4000,
+    "n_epochs" : 10000,
     "test_every": 50,
     "n_epochs_test": 10
   },

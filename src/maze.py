@@ -69,6 +69,8 @@ class ImageGridWorld(object):
                 self.get_objective_state = self._get_image_objective
             elif  objective_type == "image_no_bkg":
                 self.get_objective_state = self._get_image_objective_no_bkg
+            elif  objective_type == "random_image":
+                self.get_objective_state = self._get_random_image_objective
             elif objective_type == "text":
                 self.get_objective_state = self._get_text_objective
             else:
@@ -103,9 +105,17 @@ class ImageGridWorld(object):
         return state
 
     def _get_image_objective(self):
-        #Todo : Take images from the test_set as objective instead of the exact image
         x,y = self.reward_position
         return self.grid[x,y]
+
+    def _get_random_image_objective(self):
+        x,y = self.reward_position
+        img = self.load_random_image_per_class(class_id=x*self.n_col + y,
+            background_color=[0, 0, 0], show=False, seed=np.random.randint(2**16))
+        img = channel_last_to_channel_first(self.normalize(img))
+        # print(x, y)
+        # plot_single_image(img)
+        return img
 
     def _get_image_objective_no_bkg(self):
         x,y = self.reward_position
@@ -117,14 +127,14 @@ class ImageGridWorld(object):
     def _change_objective(self):
         if self.count_current_objective >= self.objective_changing_every:
             self.reward_position = random.sample(self.objectives, k=1)[0]
-            self.count_current_objective = 0
+            self.count_current_objective = 1
         else:
             self.count_current_objective += 1
 
     def reset(self, show=True):
         if self.count_ep_in_this_maze >= self.change_maze_every_n:
             self.create_grid_of_image(show=show)
-            self.count_ep_in_this_maze = 0
+            self.count_ep_in_this_maze = 1
         else:
             self.count_ep_in_this_maze += 1
 
@@ -160,19 +170,13 @@ class ImageGridWorld(object):
             done = False
 
         info = copy(self.position)
-
         return observation, reward, done, info
 
     def get_current_square_and_all_directions(self):
-
         x,y = self.position
 
-        #A State correspond to : (current image, north, south, east, west) so 5 images => 15 channel
-        # (may be too much)
-        # TODO : Rescale image ?? Less channel ?
         self.observation = np.zeros((15, self.size_img[0], self.size_img[1]))
-
-        self.observation[ :3, :, :] = self.get_current_square()
+        self.observation[:3, :, :] = self.get_current_square()
 
         if x+1 < self.n_row : #North
             self.observation[3:6, :, :] = self.grid[x+1, y]
@@ -251,7 +255,9 @@ class ImageGridWorld(object):
             count = 0
             for i in range(self.n_row):
                 for j in range(self.n_col):
-                    local_seed = np.random.randint(2**8)
+                    local_seed = np.random.randint(2**16)
+                    # NOTE : this seed changes at each step, it's just to ensure
+                    # that with and without bkg are the same image
                     background_color = self.background[:, i, j]
                     image_selected_channel_last = self.load_random_image_per_class(class_id=count,
                               background_color=background_color, show=False, seed=local_seed)

@@ -11,7 +11,7 @@ from config import load_config_and_logger
 import torch.optim as optim
 import torch
 import numpy as np
-from image_utils import make_video
+from image_utils import make_video, make_eval_plot
 
 parser = argparse.ArgumentParser('Log Parser arguments!')
 
@@ -49,7 +49,6 @@ gif_verbosity = config["io"]["gif_verbosity"]
 
 
 def train(agent, env):
-    # TODO : remove the videos?
     if epsilon_schedule == 'linear':
         eps_range = np.linspace(epsilon_init, 0., n_epochs)
     elif epsilon_schedule=='constant':
@@ -86,6 +85,7 @@ def train(agent, env):
                 f.write("{} {}\n".format(epoch, length))
             with open(save_path.format('train_rewards'), 'a+') as f:
                     f.write("{} {}\n".format(epoch, reward))
+            make_eval_plot(save_path.format('train_lengths'), save_path.format('eval_curve.png'))
 
 
         if gif_verbosity != 0:
@@ -94,14 +94,15 @@ def train(agent, env):
 
 def test(agent, env):
     lengths, rewards = [], []
+    obj_type = config['env_type']['objective']['type']
 
-    if config['env_type']['objective']['type'] in ['image', 'image_no_bkg']:
+    if obj_type in ['image', 'image_no_bkg', 'random_image']:
         # For now, test only on previously seen examples
         test_objectives = env.objectives
-    elif config['env_type']['objective']['type'] == 'fixed':
+    elif obj_type == 'fixed':
         test_objectives = [env.reward_position]
     else:
-        assert False, 'Text objective not supported'
+        assert False, 'Objective {} not supported'.format(obj_type)
 
     for objective in test_objectives:
         logging.debug('Switching objective to {}'.format(objective))
