@@ -33,7 +33,6 @@ class ReinforceAgent(object):
         self.update_every = config['reinforce_update_every']
         self.concatenate_objective = config['concatenate_objective']
         self.last_loss = np.nan
-        self.win_history = []
         self.rewards_epoch = []
         self.rewards_replay = []
         self.states_epoch = []
@@ -52,11 +51,6 @@ class ReinforceAgent(object):
             R = r + self.gamma * R
             rewards.insert(0, R)
 
-        if np.any(np.array(self.rewards_epoch) > 0):
-            self.win_history.append(1)
-        else:
-            self.win_history.append(0)
-
         self.rewards_replay.extend(rewards)
         self.states_replay.extend(self.states_epoch)
         self.actions_replay.extend(self.actions_epoch)
@@ -66,7 +60,6 @@ class ReinforceAgent(object):
 
 
         if epoch % self.update_every == 0 and epoch != 0:
-            logging.info('Epoch {} : fraction of exits since last update {}'.format(epoch, np.sum(self.win_history) / self.update_every))
             self.win_history = []
 
             rewards = Tensor(self.rewards_replay)

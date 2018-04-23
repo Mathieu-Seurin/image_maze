@@ -37,15 +37,19 @@ elif config["agent_type"] == 'reinforce':
 else:
     assert False, "Wrong agent type : {}".format(config["agent_type"])
 
-n_epochs = config["optim"]["n_episode"]
-batch_size = config["optim"]["batch_size"]
-epsilon_schedule = config["optim"]["epsilon_schedule"][0]
-epsilon_init = config["optim"]["epsilon_schedule"][1]
+n_epochs = config["train_params"]["n_epochs"]
+batch_size = config["train_params"]["batch_size"]
+epsilon_schedule = config["train_params"]["epsilon_schedule"][0]
+epsilon_init = config["train_params"]["epsilon_schedule"][1]
+test_every = config["train_params"]["test_every"]
+n_epochs_test = config["train_params"]["n_epochs_test"]
 
-verbosity = config["verbosity"]
-gif_verbosity = config["gif_verbosity"]
+verbosity = config["io"]["verbosity"]
+gif_verbosity = config["io"]["gif_verbosity"]
+
 
 def train(agent, env):
+    # TODO : remove the videos?
     if epsilon_schedule == 'linear':
         eps_range = np.linspace(epsilon_init, 0., n_epochs)
     elif epsilon_schedule=='constant':
@@ -54,81 +58,75 @@ def train(agent, env):
         eps_decay = n_epochs / 4.
         eps_range = [epsilon_init * np.exp(-1. * i / eps_decay) for i in range(n_epochs)]
 
-    losses, rewards = [], []
-
     for epoch in range(n_epochs):
         state = env.reset(show=False)
         done = False
-        epoch_losses = []
-        epoch_rewards = []
         video = []
         time_out = 20
         time = 0
 
         while not done and time < time_out:
             time += 1
-            if epoch % gif_verbosity == 0 and epoch != 0:
-                video.append(env.render(display=False))
+
+            if gif_verbosity != 0:
+                if epoch % gif_verbosity == 0 and epoch != 0:
+                    video.append(env.render(display=False))
+
             action = agent.forward(state, eps_range[epoch])
             next_state, reward, done, _ = env.step(action)
             loss = agent.optimize(state, action, next_state, reward, batch_size=batch_size)
             state = next_state
 
-            epoch_losses.append(loss)
-            epoch_rewards.append(reward)
-
         agent.callback(epoch)
 
-        if epoch % verbosity == 0 and epoch != 0:
-            logging.info('Epoch {}: loss= {}, reward= {}, duration= {}'.format(
-                epoch, np.mean(epoch_losses), np.sum(epoch_rewards), len(epoch_rewards)))
-        losses.append(np.mean(epoch_losses))
-        rewards.append(np.sum(epoch_rewards))
-
-
-        if epoch % gif_verbosity == 0 and epoch != 0:
-            make_video(video, save_path.format('train_' + str(epoch)))
-
-            with open(save_path.format('train_losses'), 'a+') as f:
-                for l in losses:
-                    f.write(str(l)+'\n')
-            losses = []
+        if epoch % test_every == 0:
+            reward, length = test(agent, env)
+            logging.info("Epoch {} test : averaged reward {}, average length {}".format(epoch, reward, length))
+            with open(save_path.format('train_lengths'), 'a+') as f:
+                f.write("{} {}\n".format(epoch, length))
             with open(save_path.format('train_rewards'), 'a+') as f:
-                for r in rewards:
-                    f.write(str(r)+'\n')
-            rewards = []
+                    f.write("{} {}\n".format(epoch, reward))
+
+
+        if gif_verbosity != 0:
+            if epoch % gif_verbosity == 0 and epoch != 0:
+                make_video(video, save_path.format('train_' + str(epoch)))
 
 def test(agent, env):
     lengths, rewards = [], []
 
-    for epoch in range(512):
-        state = env.reset(show=False)
-        done = False
-        video = []
-        time_out = 5
-        time = 0
-        epoch_rewards = []
+    if config['env_type']['objective']['type'] in ['image', 'image_no_bkg']:
+        # For now, test only on previously seen examples
+        test_objectives = env.objectives
+    elif config['env_type']['objective']['type'] == 'fixed':
+        test_objectives = [env.reward_position]
+    else:
+        assert False, 'Text objective not supported'
 
-        while not done and time < time_out:
-            time += 1
-            if epoch % 10 == 1:
-                video.append(env.render(display=False))
+    for objective in test_objectives:
+        logging.debug('Switching objective to {}'.format(objective))
+        env.reward_position = objective
 
-            action = agent.forward(state, 0.)
-            next_state, reward, done, _ = env.step(action)
-            epoch_rewards += [reward]
-            state = next_state
+        for epoch in range(n_epochs_test):
+            state = env.reset(show=False)
+            done = False
+            time_out = 20
+            time = 0
+            epoch_rewards = []
 
-        logging.info('Epoch {}: reward= {}, duration= {}'.format(
-            epoch, np.sum(epoch_rewards), len(epoch_rewards)))
+            while not done and time < time_out:
+                time += 1
+                action = agent.forward(state, 0.)
+                next_state, reward, done, _ = env.step(action)
+                epoch_rewards += [reward]
+                state = next_state
 
-        rewards.append(np.sum(epoch_rewards))
-        lengths.append(len(epoch_rewards))
+            rewards.append(np.sum(epoch_rewards))
+            lengths.append(len(epoch_rewards))
 
-        if epoch % 10 == 1:
-            make_video(video, save_path.format('test_' + str(epoch)))
+    return np.mean(rewards), np.mean(lengths)
 
-        logging.info('Mean reward :{}, mean duration :{}'.format(np.mean(rewards), np.mean(lengths)))
-
-train(rl_agent, env)
-test(rl_agent, env)
+if config['agent_type'] != 'random':
+    train(rl_agent, env)
+else:
+    print(test(rl_agent, env))
