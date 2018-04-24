@@ -53,6 +53,8 @@ def create_big_colored_dataset():
 # plt.imshow(big_dataset[1000000])
 # plt.show()
 
+big_dataset = create_big_colored_dataset()
+
 #mean = np.mean(big_dataset, axis=(0,1,2))
 #print(mean)
 

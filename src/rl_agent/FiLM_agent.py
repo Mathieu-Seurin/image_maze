@@ -3,7 +3,13 @@ import ipdb as pdb
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.nn.init import kaiming_normal, kaiming_uniform
+from rl_agent.film_utils import init_modules
+
+class FiLM_agent(nn.Module):
+
+    def forward(self, x):
+        pass
+
 
 class FiLM(nn.Module):
   """

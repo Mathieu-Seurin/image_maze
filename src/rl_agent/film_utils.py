@@ -1,3 +1,7 @@
+import torch.nn as nn
+import torch.nn.functional as F
+from torch.nn.init import kaiming_normal, kaiming_uniform
+
 class ResidualBlock(nn.Module):
   def __init__(self, in_dim, out_dim=None, with_residual=True, with_batchnorm=True):
     if out_dim is None:
@@ -27,3 +31,15 @@ class ResidualBlock(nn.Module):
     else:
       out = F.relu(out)
     return out
+
+
+def init_modules(modules, init='uniform'):
+  if init.lower() == 'normal':
+    init_params = kaiming_normal
+  elif init.lower() == 'uniform':
+    init_params = kaiming_uniform
+  else:
+    return
+  for m in modules:
+    if isinstance(m, (nn.Conv2d, nn.Linear)):
+        init_params(m.weight)
