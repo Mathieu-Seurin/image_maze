@@ -4,10 +4,10 @@ class AbstractAgent(object):
     def __init__(self, config, n_action):
         self.n_action = n_action
 
-    def forward(self, n_action, epsilon=0.):
-        return np.random.randint(0,self.n_action)
+    def forward(self, n_action, *args, **kwargs):
+        return np.random.randint(0, self.n_action)
 
-    def optimize(self):
+    def optimize(self, *args, **kwargs):
         pass
 
     def apply_config(config):

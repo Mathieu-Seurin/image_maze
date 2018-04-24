@@ -4,12 +4,12 @@ from copy import copy
 import random
 import itertools
 import time
-
 import matplotlib
-#matplotlib.use('Qt5Agg')
 import matplotlib.pyplot as plt
-
 from image_utils import to_rgb_channel_first, to_rgb_channel_last, channel_last_to_channel_first, channel_first_to_channel_last, plot_single_image
+
+# TODO : make test reproducible
+
 
 class ImageGridWorld(object):
     def __init__(self, config, show=False):
@@ -19,18 +19,14 @@ class ImageGridWorld(object):
         self.mean_per_channel = np.array([0.5450519,   0.88200397,  0.54505189])
         self.std_per_channel = np.array([0.35243599, 0.23492979,  0.33889725])
 
-        # self.mean_per_channel = np.array([0.5,   0.5,  0.5])
-        # self.std_per_channel = np.array([0.5,   0.5,  0.5])
 
         self.n_row = config["n_row"]
         self.n_col = config["n_col"]
         self.position = []
 
 
-        # The first tuple correspond to the "train" images that will be used for pretrain network
-        # So we don't use them for the maze
-        (_, _), (self.digits_im, self.digits_labels) = mnist.load_data()
-        (_, _), (self.fashion_im, self.fashion_labels) = fashion_mnist.load_data()
+        (self.digits_im, self.digits_labels), (_, _) = mnist.load_data()
+        (self.fashion_im, self.fashion_labels), (_, _) = fashion_mnist.load_data()
 
         self.size_img = self.fashion_im[0].shape
         self.size_vector = self.size_img[0]*self.size_img[1]
@@ -40,10 +36,7 @@ class ImageGridWorld(object):
         self.background = []
         self.create_background(show=False)
 
-        self.maze_grid = [] # Grid containing an image on each square of the board
-        self.grid_class = [] # Grid containing the class of the state (0 : digit 0, 1: digit 1 ..., 19 : boots)
-        self.current_objective = None
-
+        self.grid = []
         self.grid_type = config["maze_type"]
         self.create_grid_of_image(show=show)
 
@@ -63,7 +56,7 @@ class ImageGridWorld(object):
         # ==================== Reward Type =======================
         # =========================================================
         # reward is only located at one place : fixed
-        if config["objective"]["modality"] == "fixed":
+        if config["objective"]["type"] == "fixed":
             self.reward_position = (2, 2)
 
             # Identity : Do nothing
@@ -71,31 +64,29 @@ class ImageGridWorld(object):
             self.post_process = lambda *args: None
 
         else:
-            objective_type = config["objective"]["modality"]
+            objective_type = config["objective"]["type"]
             if  objective_type == "image":
                 self.get_objective_state = self._get_image_objective
-
-                # Can be "case" or "category"
-                # "case" means : the objective_state is the image of a checkboard case ("GO FOR THIS T-SHIRT")
-                # "category" means : the objective_state is not the EXACT state you need to reach, but sampled from the same class
-                # ("GO FOR A T-SHIRT (even though it's not the same as on the picture)")
-                self.objective_image_type = config["objective"]["objective_image"]
-
-
+            elif  objective_type == "image_no_bkg":
+                self.get_objective_state = self._get_image_objective_no_bkg
+            elif  objective_type == "random_image":
+                self.get_objective_state = self._get_random_image_objective
             elif objective_type == "text":
                 self.get_objective_state = self._get_text_objective
             else:
                 raise Exception("objective type must be 'fixed', 'text' or 'image', not {}".format(objective_type))
 
             # Changing the number of state you're alternating with, and the speed at which you change objective
-            #all_objective = list(itertools.product(range(self.n_row), range(self.n_col)))
-            all_objective = [(1,0),(3,1),(4,3),(1,3)]
-            random.shuffle(all_objective)
-            self.n_objective = config["objective"]["curriculum"]["n_objective"]
+            self.all_objectives = list(itertools.product(range(self.n_row), range(self.n_col)))
+            # self.all_objectives = [(1,0),(3,1),(4,3),(1,3)]
+            objective_shuffler = random.Random(777)
+            objective_shuffler.shuffle(self.all_objectives)
+            # Add seed for reproducibility
+            self.n_objectives = config["objective"]["curriculum"]["n_objective"]
             self.objective_changing_every = config["objective"]["curriculum"]["change_every"]
 
-            self.objectives = all_objective[:self.n_objective]
-            self.reward_position = random.sample(self.objectives, k=1)[0]
+            self.objectives = self.all_objectives[:self.n_objectives]
+            self.reward_position = self.objectives[np.random.randint(len(self.objectives))]
 
             self.post_process = self._change_objective
 
@@ -114,53 +105,45 @@ class ImageGridWorld(object):
         return state
 
     def _get_image_objective(self):
-
         x,y = self.reward_position
-        if self.current_objective is None:
+        return self.grid[x,y]
 
-            if self.objective_image_type == "case":
-                img_objective = self.maze_grid[x, y]
+    def _get_random_image_objective(self):
+        x,y = self.reward_position
+        img = self.load_random_image_per_class(class_id=x*self.n_col + y,
+            background_color=[0, 0, 0], show=False, seed=np.random.randint(2**16))
+        img = channel_last_to_channel_first(self.normalize(img))
+        # print(x, y)
+        # plot_single_image(img)
+        return img
 
-            elif self.objective_image_type == "category" :
-                objective_class = self.grid_class[x,y]
-                background_color = self.background[:, x,y]
-                img_objective, _ = self.load_random_image_per_class(class_id=objective_class,
-                                                                 background_color=background_color,
-                                                                 show=True)
-            else:
-                raise NotImplementedError("Wrong type of objective image type")
-            self.current_objective = img_objective
-        return self.current_objective
-
+    def _get_image_objective_no_bkg(self):
+        x,y = self.reward_position
+        return self.grid_no_bkg[x,y]
 
     def _get_text_objective(self):
         raise NotImplementedError("Not yet, image is only available at the moment")
 
     def _change_objective(self):
         if self.count_current_objective >= self.objective_changing_every:
-            self.reward_position = random.sample(self.objectives, k=1)[0]
-            self.count_current_objective = 0
-            self.current_objective = None
+            self.reward_position = self.objectives[np.random.randint(len(self.objectives))]
+            self.count_current_objective = 1
         else:
             self.count_current_objective += 1
 
     def reset(self, show=True):
-        # Change maze every n step
         if self.count_ep_in_this_maze >= self.change_maze_every_n:
             self.create_grid_of_image(show=show)
-            self.count_ep_in_this_maze = 0
+            self.count_ep_in_this_maze = 1
         else:
             self.count_ep_in_this_maze += 1
 
-        # Set begin position at random, not on the goal
         position_on_reward = True
         while position_on_reward:
             y = np.random.randint(self.n_row-1)
             x = np.random.randint(self.n_col-1)
             self.position = (x, y)
             position_on_reward = bool(self.get_reward())
-            # if position is on reward, change position
-
         return self.get_state()
 
     def step(self, action):
@@ -187,37 +170,31 @@ class ImageGridWorld(object):
             done = False
 
         info = copy(self.position)
-
         return observation, reward, done, info
 
     def get_current_square_and_all_directions(self):
-
         x,y = self.position
 
-        #A State correspond to : (current image, north, south, east, west) so 5 images => 15 channel
-        # (may be too much)
-        # TODO : Rescale image ?? Less channel ?
         self.observation = np.zeros((15, self.size_img[0], self.size_img[1]))
-
-        self.observation[ :3, :, :] = self.get_current_square()
+        self.observation[:3, :, :] = self.get_current_square()
 
         if x+1 < self.n_row : #North
-            self.observation[3:6, :, :] = self.maze_grid[x + 1, y]
+            self.observation[3:6, :, :] = self.grid[x+1, y]
         else:
             self.observation[3:6, :, :] = self.black_image
 
         if x-1 >= 0 : #South
-            self.observation[6:9, :, :] = self.maze_grid[x - 1, y]
+            self.observation[6:9, :, :] = self.grid[x-1, y]
         else:
             self.observation[6:9, :, :] = self.black_image
 
         if y-1 >= 0 : #East
-            self.observation[9:12, :, :] = self.maze_grid[x, y - 1]
+            self.observation[9:12, :, :] = self.grid[x, y-1]
         else:
             self.observation[9:12, :, :] = self.black_image
 
         if y+1 < self.n_col : #West
-            self.observation[12:15, :, :] = self.maze_grid[x, y + 1]
+            self.observation[12:15, :, :] = self.grid[x, y+1]
         else:
             self.observation[12:15, :, :] = self.black_image
 
@@ -225,7 +202,7 @@ class ImageGridWorld(object):
 
     def get_current_square(self):
         x,y = self.position
-        return self.maze_grid[x, y]
+        return self.grid[x,y]
 
     def get_reward(self):
         if np.all(self.position == self.reward_position):
@@ -233,7 +210,7 @@ class ImageGridWorld(object):
         else:
             return 0
 
-    def render(self, display=False):
+    def render(self, display=True):
         """
         This function print the board and the position of the agent
         ONLY in this function, the image format is (H,W,C)
@@ -268,30 +245,44 @@ class ImageGridWorld(object):
         return shown_grid
 
     def create_grid_of_image(self, show=False):
-
         grid_type = self.grid_type
         if grid_type == "sequential":
-            self.maze_grid = np.zeros((self.n_row, self.n_col, 3, self.size_img[0], self.size_img[1]))
-            self.grid_class = np.zeros((self.n_row, self.n_col))
-            self.grid_plot = np.zeros((self.n_row, self.n_col, self.size_img[0], self.size_img[1], 3))
+            self.grid = np.zeros((self.n_row, self.n_col, 3, self.size_img[0], self.size_img[1]))
+            self.grid_no_bkg = np.zeros((self.n_row, self.n_col, 3, self.size_img[0], self.size_img[1]))
+            grid_plot = np.zeros((self.n_row, self.n_col, self.size_img[0], self.size_img[1], 3))
+
 
             count = 0
             for i in range(self.n_row):
                 for j in range(self.n_col):
-                    background_color = self.background[:, i,j]
-                    image_normalized_channel_first, image_display_channel_last = self.load_random_image_per_class(class_id=count,
-                                                                      background_color=background_color,
-                                                                      show=False)
-                    # save image in format (h,w,c)
-                    self.grid_plot[i,j] = image_display_channel_last
-                    self.maze_grid[i, j] = image_normalized_channel_first
+                    local_seed = np.random.randint(2**16)
+                    # NOTE : this seed changes at each step, it's just to ensure
+                    # that with and without bkg are the same image
+                    background_color = self.background[:, i, j]
+                    image_selected_channel_last = self.load_random_image_per_class(class_id=count,
+                              background_color=background_color, show=False, seed=local_seed)
 
-                    self.grid_class[i, j] = count # to indicate what is the class of the image present in this case
+                    image_selected_no_bkg = self.load_random_image_per_class(class_id=count,
+                              background_color=[0, 0, 0], show=False, seed=local_seed)
+
+                    # save image in format (h,w,c)
+                    grid_plot[i,j] = image_selected_channel_last
+
+                    # Normalize image
+                    image_selected_channel_last = self.normalize(image_selected_channel_last)
+                    image_selected_no_bkg = self.normalize(image_selected_no_bkg)
+                    formatted_image = channel_last_to_channel_first(image_selected_channel_last)
+                    formatted_image_no_bkg = channel_last_to_channel_first(image_selected_no_bkg)
+                    self.grid[i, j] = formatted_image
+                    self.grid_no_bkg[i, j] = formatted_image_no_bkg
                     count += 1
+
+            self.grid_plot = grid_plot
+
 
         else:
             # Todo : TSNE order
-            raise NotImplementedError("Only sequential grid is available at the moment")
+            raise NotImplementedError("Only all_diff is available at the moment")
 
         if show :
             self.render()
@@ -318,7 +309,7 @@ class ImageGridWorld(object):
             plt.imshow(background)
             plt.show()
 
-    def load_random_image_per_class(self, class_id, background_color, show=False):
+    def load_random_image_per_class(self, class_id, background_color, show=False, seed=1):
 
         if class_id <= 9:
             labels = self.digits_labels
@@ -328,30 +319,26 @@ class ImageGridWorld(object):
             dataset = self.fashion_im
             class_id = class_id - 10
 
-        random_image_id = np.random.choice(np.where(labels == class_id)[0])
+        local_rand = np.random.RandomState(seed=seed)
+        random_image_id = local_rand.choice(np.where(labels == class_id)[0])
         image_selected_grey = dataset[random_image_id]
 
         #black_area = np.where(image_selected == 0)
         black_area = np.where(image_selected_grey < 10)
 
-        image_display_channel_last = to_rgb_channel_last(image_selected_grey)
-        image_display_channel_last /= 255
+        image_selected_channel_last = to_rgb_channel_last(image_selected_grey)
+        image_selected_channel_last /= 255
 
-        image_display_channel_last[black_area] = background_color
+        image_selected_channel_last[black_area] = background_color
         if show:
             plt.figure()
-            plt.imshow(image_display_channel_last)
+            plt.imshow(image_selected_channel_last)
             plt.show()
 
-        img_normalized = self.normalize(np.copy(image_display_channel_last))
-        img_normalized_channel_first = channel_last_to_channel_first(img_normalized)
-
-        return img_normalized_channel_first, image_display_channel_last
+        return image_selected_channel_last
 
 
     def normalize(self, im):
-
-        assert im.shape[2] == 3, "rbg channel need to be last"
 
         # plot_single_image(im)
 
@@ -374,23 +361,25 @@ if __name__ == "__main__":
     config = {"n_row":5,
               "n_col":4,
               "state_type":"surrounding",
-              "maze_type":"sequential",
-              "change_maze": 0,
               "objective":{
-                  "modality":"fixed"
+                  "type":"fixed"
                 }
               }
     maze = ImageGridWorld(config=config, show=True)
 
-    im = np.random.random((2,2,3))
-    save = np.copy(im)
+    im = np.ones((2,2,3))
+    im[:,:,0] = 1
+    im[:,:,1] = 0.5
+    im[:,:,2] = 0.2
     print("im =", im)
 
     ret = maze.normalize(im)
     print("perso = ",ret)
 
-    im = np.copy(save)
-
+    im = np.ones((2,2,3))
+    im[:,:,0] = 1
+    im[:,:,1] = 0.5
+    im[:,:,2] = 0.2
     pipe = transforms.Compose([
         transforms.ToTensor(),
         transforms.Normalize(maze.mean_per_channel, maze.std_per_channel)
@@ -398,25 +387,3 @@ if __name__ == "__main__":
 
     ret = pipe(img=im*255)
     print("pytorch = ", ret)
-
-    config = {"n_row": 5,
-              "n_col": 4,
-              "state_type": "surrounding",
-              "maze_type": "sequential",
-              "change_maze": 0,
-              "objective": {
-                  "curriculum":{
-                      "n_objective" : 2,
-                      "change_every" : 2
-                  },
-                  "modality": "image",
-                  "objective_image" : "category"
-
-                }
-              }
-    maze = ImageGridWorld(config=config, show=True)
-
-
-    maze._get_image_objective()
-    maze.position = (0,0)
-    maze.render(display=True)

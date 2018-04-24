@@ -29,22 +29,25 @@ class DQNAgent(object):
         if use_cuda:
             self.forward_model.cuda()
             self.ref_model.cuda()
-
+        self.concatenate_objective = config['concatenate_objective']
         self.n_action = n_action
-        self.memory = ReplayMemory(2048)
+        self.memory = ReplayMemory(16384)
         self.gamma = self.forward_model.gamma
 
     def apply_config(self, config):
         pass
 
     def callback(self, epoch):
-        if epoch % 3 == 0:
+        if epoch % 10 == 0:
             self.ref_model.load_state_dict(self.forward_model.state_dict())
 
     def forward(self, state, epsilon=0.1):
         # state is {"env_state" : img, "objective": img}
-        state = state['env_state']
+        state_loc = FloatTensor(state['env_state'])
+        if self.concatenate_objective:
+            state_loc = torch.cat((state_loc, FloatTensor(state['objective'])))
 
+        state = state_loc
         plop = np.random.rand()
         if plop < epsilon:
             idx = np.random.randint(self.n_action)
@@ -57,12 +60,15 @@ class DQNAgent(object):
 
     def optimize(self, state, action, next_state, reward, batch_size=16):
         # state is {"env_state" : img, "objective": img}
-        state = state['env_state']
-        next_state = next_state['env_state']
+        state_loc = FloatTensor(state['env_state'])
+        next_state_loc = FloatTensor(next_state['env_state'])
 
+        if self.concatenate_objective:
+            state_loc = torch.cat((state_loc, FloatTensor(state['objective'])))
+            next_state_loc = torch.cat((next_state_loc, FloatTensor(next_state['objective'])))
 
-        state = FloatTensor([state])
-        next_state = FloatTensor([next_state])
+        state = state_loc.unsqueeze(0)
+        next_state = next_state_loc.unsqueeze(0)
         action = LongTensor([int(action)]).view((1, 1,))
         reward = FloatTensor([reward])
 

@@ -73,6 +73,13 @@ def make_video(replay, filename):
             writer.writeFrame(replay[i]*255)
     writer.close()
 
+def make_eval_plot(filename_in, filename_out):
+    plop = np.loadtxt(filename_in)
+    plop = plop.reshape((-1, 2))
+    plt.figure()
+    plt.plot(plop[:, 0], plop[:, 1])
+    plt.savefig(filename_out)
+    plt.close()
 
 if __name__ == "__main__":
 

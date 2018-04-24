@@ -31,8 +31,8 @@ class ReinforceAgent(object):
         self.n_action = n_action
         self.gamma = config['gamma']
         self.update_every = config['reinforce_update_every']
+        self.concatenate_objective = config['concatenate_objective']
         self.last_loss = np.nan
-        self.win_history = []
         self.rewards_epoch = []
         self.rewards_replay = []
         self.states_epoch = []
@@ -51,11 +51,6 @@ class ReinforceAgent(object):
             R = r + self.gamma * R
             rewards.insert(0, R)
 
-        if np.any(np.array(self.rewards_epoch) > 0):
-            self.win_history.append(1)
-        else:
-            self.win_history.append(0)
-
         self.rewards_replay.extend(rewards)
         self.states_replay.extend(self.states_epoch)
         self.actions_replay.extend(self.actions_epoch)
@@ -65,7 +60,6 @@ class ReinforceAgent(object):
 
 
         if epoch % self.update_every == 0 and epoch != 0:
-            logging.info('Epoch {} : fraction of exits since last update {}'.format(epoch, np.sum(self.win_history) / self.update_every))
             self.win_history = []
 
             rewards = Tensor(self.rewards_replay)
@@ -101,8 +95,9 @@ class ReinforceAgent(object):
 
     def forward(self, state, epsilon=0.1):
         # Epsilon has no influence, keep it for compatibility
-        state_loc = state['env_state']
-        state_loc = FloatTensor(state_loc)
+        state_loc = FloatTensor(state['env_state'])
+        if self.concatenate_objective:
+            state_loc = torch.cat((state_loc, FloatTensor(state['objective'])))
         state_loc = state_loc.unsqueeze(0)
         probs = self.forward_model(Variable(state_loc, volatile=True))
         m = Categorical(probs)
@@ -113,5 +108,8 @@ class ReinforceAgent(object):
         # Just store all relevant info to do batch learning at end of epoch
         self.rewards_epoch.append(reward)
         self.actions_epoch.append(action)
-        self.states_epoch.append(Tensor(state['env_state']).unsqueeze(0))
+        state_loc = Tensor(state['env_state'])
+        if self.concatenate_objective:
+            state_loc = torch.cat((state_loc, FloatTensor(state['objective'])))
+        self.states_epoch.append(state_loc.unsqueeze(0))
         return self.last_loss

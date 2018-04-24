@@ -1,6 +1,6 @@
 {
   "name": "basic_config",
-  "agent_type":"dqn",
+  "agent_type":"random",
   "seed": 43,
   "env_type":
   {
@@ -24,7 +24,7 @@
     "batch_size": 32,
     "n_epochs" : 2000,
     "test_every": 100,
-    "n_epochs_test": 5
+    "n_epochs_test": 50
   },
   "io": {
     "verbosity": 1,
