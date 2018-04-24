@@ -5,41 +5,46 @@ import itertools
 
 import matplotlib.pyplot as plt
 
-(digits_im, digits_labels), (_, _) = mnist.load_data()
-(fashion_im, fashion_labels), (_, _) = fashion_mnist.load_data()
+def create_big_colored_dataset():
 
-fused_dataset = np.concatenate([digits_im, fashion_im], axis=0)
+    (digits_im, digits_labels), (_, _) = mnist.load_data()
+    (fashion_im, fashion_labels), (_, _) = fashion_mnist.load_data()
 
-black_area = np.where(fused_dataset < 10)
+    fused_dataset = np.concatenate([digits_im, fashion_im], axis=0)
 
-fused_dataset = to_rgb_channel_last(fused_dataset)/255
-print("mean dataset", fused_dataset.mean(axis=(0,1,2)))
+    black_area = np.where(fused_dataset < 10)
 
-n_row = 5
-n_col = 4
-num_sample, h, w, channel = fused_dataset.shape
+    fused_dataset = to_rgb_channel_last(fused_dataset)/255
+    print("mean dataset", fused_dataset.mean(axis=(0,1,2)))
 
-big_dataset = np.empty((n_row*n_col*num_sample, h, w, channel))
-background = np.ones((3, n_row, n_col))
+    n_row = 5
+    n_col = 4
+    num_sample, h, w, channel = fused_dataset.shape
 
-background[0, :, :] = np.tile(np.linspace(0, 1, n_col), (n_row, 1))
-background[2, :, :] = np.tile(np.linspace(1, 0, n_row), (n_col, 1)).T
+    big_dataset = np.empty((n_row*n_col*num_sample, h, w, channel))
+    background = np.ones((3, n_row, n_col))
 
-for count, (line,col) in enumerate(itertools.product(range(n_row), range(n_col))):
-    print(count)
-    color = background[:, line, col]
-    print("color", color)
-    current_dataset = np.copy(fused_dataset)
-    current_dataset[black_area] = color
+    background[0, :, :] = np.tile(np.linspace(0, 1, n_col), (n_row, 1))
+    background[2, :, :] = np.tile(np.linspace(1, 0, n_row), (n_col, 1)).T
 
-    a = current_dataset[10000]
-    print("center", a[14,14,:])
-    print("corner", a[0,0,:])
+    for count, (line,col) in enumerate(itertools.product(range(n_row), range(n_col))):
+        print(count)
+        color = background[:, line, col]
+        print("color", color)
+        current_dataset = np.copy(fused_dataset)
+        current_dataset[black_area] = color
 
-    # plt.imshow(a)
-    # plt.show()
+        a = current_dataset[10000]
+        print("center", a[14,14,:])
+        print("corner", a[0,0,:])
 
-    big_dataset[num_sample*count:num_sample*(count+1), :, :, :] = current_dataset
+        # plt.imshow(a)
+        # plt.show()
+
+        big_dataset[num_sample*count:num_sample*(count+1), :, :, :] = current_dataset
+
+
+    return big_dataset
 
 # plt.imshow(big_dataset[100])
 # plt.show()

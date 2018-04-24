@@ -50,3 +50,5 @@ def check_params_changed(dict1, dict2):
         tmp2 = dict2[key]
         if np.max(np.abs(tmp1 - tmp2))==0:
             logging.warning('No change in params {}'.format(key))
+
+
