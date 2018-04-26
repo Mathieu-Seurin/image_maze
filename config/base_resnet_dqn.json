@@ -21,23 +21,23 @@
   "train_params": {
     "epsilon_schedule": ["exp", 0.95],
     "batch_size": 64,
-    "n_epochs" : 30000,
+    "n_epochs" : 2000,
     "test_every": 100,
     "n_epochs_test": 10
   },
   "io": {
     "verbosity": 1,
-    "num_epochs_to_store": 10
+    "num_epochs_to_store": 0
   },
 
   "agent_type":"resnet_dqn",
 
 
   "resnet_dqn_params":{
-    "learning_rate" : 1e-6,
+    "learning_rate" : 1e-5,
     "optimizer": "RMSprop",
     "gamma": 0.99,
-    "n_resblock" : 1,
+    "n_resblock" : 2,
     "n_hidden" : 200,
     "use_film" : false,
     "tau" : 0.0001

@@ -172,7 +172,7 @@ class FilmedNet(nn.Module):
                                           num_resblock_to_modulate=self.n_resblocks,
                                           num_channel_in=self.num_channel_per_objective)
 
-        self.out_channel = 1
+        self.out_channel = 3
         self.n_actions = n_actions
 
         self.resblocks = nn.ModuleList()
@@ -187,7 +187,7 @@ class FilmedNet(nn.Module):
 
         # head
         self.head_conv = nn.Conv2d(in_channels=self.num_channel_per_state,
-                                   out_channels=1,
+                                   out_channels=self.out_channel,
                                    kernel_size=1)
 
         # Todo : attention head ?
