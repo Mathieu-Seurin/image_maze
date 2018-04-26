@@ -7,7 +7,7 @@ from maze import ImageGridWorld
 from rl_agent.basic_agent import AbstractAgent
 from rl_agent.dqn_agent import DQNAgent
 from rl_agent.reinforce_agent import ReinforceAgent
-from config import load_config_and_logger
+from config import load_config_and_logger, set_seed
 import torch.optim as optim
 import torch
 import numpy as np
@@ -24,7 +24,9 @@ args = parser.parse_args()
 # Load_config also creates logger inside (INFO to stdout, INFO to train.log)
 config, exp_identifier, save_path = load_config_and_logger(config_file=args.config,
                     exp_dir=args.exp_dir, args=args, extension_file=args.extension)
+
 logging = logging.getLogger()
+set_seed(config)
 
 env = ImageGridWorld(config=config["env_type"], show=False)
 
@@ -38,7 +40,7 @@ else:
     assert False, "Wrong agent type : {}".format(config["agent_type"])
 
 
-np.random.seed(config["seed"])
+
 n_epochs = config["train_params"]["n_epochs"]
 batch_size = config["train_params"]["batch_size"]
 epsilon_schedule = config["train_params"]["epsilon_schedule"][0]

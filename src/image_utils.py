@@ -1,6 +1,7 @@
 import numpy as np
 from skvideo.io import FFmpegWriter as VideoWriter
 import matplotlib.pyplot as plt
+import os
 
 def to_rgb_channel_first(im):
 
@@ -66,12 +67,15 @@ def plot_single_image(im):
 def make_video(replay, filename):
     n_frames = len(replay)
     n_channels, n_w, n_h = replay[0].shape
-    writer = VideoWriter(filename + '.mp4')
+    if not os.path.isdir(filename):
+        os.makedirs(filename)
+    # writer = VideoWriter(filename + '.mp4')
     for i in range(n_frames):
         for _ in range(5):
             # Frame repeat for easier watching
-            writer.writeFrame(replay[i]*255)
-    writer.close()
+            plt.imshow(replay[i].transpose(1, 2, 0))
+            plt.savefig('{}/{}.png'.format(filename, i))
+            plt.close()
 
 def make_eval_plot(filename_in, filename_out):
     plop = np.loadtxt(filename_in)

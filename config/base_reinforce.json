@@ -1,7 +1,7 @@
 {
   "name": "basic_config",
   "agent_type":"reinforce",
-  "seed": 43,
+  "seed": 42,
   "env_type":
   {
     "n_row": 5,
@@ -22,13 +22,13 @@
   "train_params": {
     "epsilon_schedule": ["exp", 1],
     "batch_size": 32,
-    "n_epochs" : 10000,
+    "n_epochs" : 100,
     "test_every": 50,
     "n_epochs_test": 10
   },
   "io": {
     "verbosity": 1,
-    "gif_verbosity": 0
+    "gif_verbosity": 10
   },
   "dqn_params":
   {
