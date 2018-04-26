@@ -116,15 +116,16 @@ class FiLMedResBlock(nn.Module):
 
 class VisionFilmGen(nn.Module):
 
-    def __init__(self, config):
+    def __init__(self, num_features_per_block, num_resblock_to_modulate, num_channel_in):
         super(VisionFilmGen, self).__init__()
 
-        self.num_features_per_block = 15
-        self.num_block_to_modulate = 2
+        self.num_features_per_block = num_features_per_block
+        self.num_block_to_modulate = num_resblock_to_modulate
         self.num_features_to_modulate = self.num_block_to_modulate*self.num_features_per_block
+        self.num_channel_in = num_channel_in
 
         self.layer1 = nn.Sequential(
-            nn.Conv2d(3, 16, kernel_size=5, padding=2),
+            nn.Conv2d(self.num_channel_in, 16, kernel_size=5, padding=2),
             nn.BatchNorm2d(16),
             nn.ReLU(),
             nn.MaxPool2d(2))
@@ -160,20 +161,23 @@ class FilmedNet(nn.Module):
 
         self.use_film = config["use_film"]
 
-        self.in_dim = state_dim[0] # Number of channels
-        self.is_multi_objective = is_multi_objective
-        if is_multi_objective and self.use_film:
-            # Todo : Check that image is always 3 channel
-            self.in_dim += 3
-            self.film_gen = VisionFilmGen(config=config)
+        self.num_channel_per_state = state_dim['env_state'][0]
+        self.num_pixel = state_dim['env_state'][1] * state_dim['env_state'][2]
 
-        self.size_img = state_dim[1]*state_dim[2]
+        self.num_channel_per_objective = state_dim['objective']
+        self.is_multi_objective = is_multi_objective
+
+        if is_multi_objective and self.use_film:
+            self.film_gen = VisionFilmGen(num_features_per_block=self.num_channel_per_state,
+                                          num_resblock_to_modulate=self.n_resblocks,
+                                          num_channel_in=self.num_channel_per_objective)
+
         self.out_channel = 1
         self.n_actions = n_actions
 
         self.resblocks = nn.ModuleList()
         for num_resblock in range(self.n_resblocks):
-            current_resblock = FiLMedResBlock(in_dim=self.in_dim,
+            current_resblock = FiLMedResBlock(in_dim=self.num_channel_per_state,
                                               with_residual=True,
                                               with_batchnorm=False,
                                               with_cond=[True])
@@ -182,13 +186,13 @@ class FilmedNet(nn.Module):
 
 
         # head
-        self.head_conv = nn.Conv2d(in_channels=self.in_dim,
+        self.head_conv = nn.Conv2d(in_channels=self.num_channel_per_state,
                                    out_channels=1,
                                    kernel_size=1)
 
         # Todo : attention head ?
 
-        self.fc1 = nn.Linear(in_features=self.size_img * self.out_channel, out_features=self.n_hidden)
+        self.fc1 = nn.Linear(in_features=self.num_pixel * self.out_channel, out_features=self.n_hidden)
         self.fc2 = nn.Linear(in_features=self.n_hidden, out_features=self.n_actions)
 
 
@@ -207,7 +211,6 @@ class FilmedNet(nn.Module):
             gammas, betas = self.film_gen.forward(x['objective'])
             x = x['env_state']
         else:
-
             if self.is_multi_objective :
                 x = torch.cat((x['env_state'], x['objective']), dim=1)
             else:
@@ -215,11 +218,11 @@ class FilmedNet(nn.Module):
 
             # Gammas = all ones
             # Betas = all zeros
-            gammas = Variable(torch.ones(batch_size, self.in_dim*self.n_resblocks).type(FloatTensor))
+            gammas = Variable(torch.ones(batch_size, self.num_channel_per_state * self.n_resblocks).type(FloatTensor))
             betas = Variable(torch.zeros_like(gammas.data).type(FloatTensor))
 
         for i,resblock in enumerate(self.resblocks):
-            gamma_beta_id = slice(self.in_dim*i,self.in_dim*(i+1))
+            gamma_beta_id = slice(self.num_channel_per_state * i, self.num_channel_per_state * (i + 1))
             x = resblock.forward(x, gammas=gammas[:, gamma_beta_id], betas=betas[:, gamma_beta_id])
 
         x = self.head_conv(x)

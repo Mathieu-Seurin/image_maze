@@ -26,9 +26,10 @@
     "test_every": 50,
     "n_epochs_test": 10
   },
+
   "io": {
     "verbosity": 1,
-    "gif_verbosity": 10
+    "num_epochs_to_store": 10
   },
   "dqn_params":
   {

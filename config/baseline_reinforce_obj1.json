@@ -1,6 +1,6 @@
 {
   "name": "basic_config",
-  "seed": 43,
+  "seed": 42,
   "env_type":
   {
     "n_row": 5,
@@ -21,16 +21,17 @@
   "train_params": {
     "epsilon_schedule": ["exp", 0.95],
     "batch_size": 64,
-    "n_epochs" : 30000,
-    "test_every": 100,
-    "n_epochs_test": 20
+    "n_epochs" : 2000,
+    "test_every": 300,
+    "n_epochs_test": 30
   },
   "io": {
     "verbosity": 1,
     "num_epochs_to_store": 9
+
   },
 
-  "agent_type":"dqn",
+  "agent_type":"reinforce",
 
 
   "resnet_dqn_params":{
@@ -49,11 +50,10 @@
     "n_channels": 18,
     "conv_shapes": [16],
     "dense_shapes": [],
-    "learning_rate" : 1e-5,
+    "learning_rate" : 1e-7,
     "optimizer": "RMSprop",
     "use_batch_norm": false,
-    "gamma": 0.99,
-    "tau" : 0.0001
+    "gamma": 0.99
   },
 
   "reinforce_params": {

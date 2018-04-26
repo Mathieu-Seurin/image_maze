@@ -30,7 +30,10 @@ class DQNAgent(object):
 
         elif config["agent_type"] == "dqn":
             config = config['dqn_params']
-            model = DQN(config, n_action, is_multi_objective)
+            model = DQN(config=config,
+                        n_action=n_action,
+                        state_dim=state_dim,
+                        is_multi_objective=is_multi_objective)
         else:
             raise NotImplementedError("model_type not recognized")
 

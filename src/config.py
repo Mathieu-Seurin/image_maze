@@ -97,10 +97,12 @@ def create_logger(save_path):
 def set_seed(config):
     import numpy as np
     import torch
+    import random
     seed = config["seed"]
     if seed > -1:
         np.random.seed(seed)
         torch.manual_seed(seed)
+        random.seed(seed)
 
 def write_seed_extensions(seed_range, out_name='../config/seed_extensions/'):
     for seed in seed_range:

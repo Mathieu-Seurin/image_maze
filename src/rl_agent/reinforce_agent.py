@@ -30,7 +30,7 @@ class ReinforceAgent(object):
             self.forward_model.cuda()
         self.n_action = n_action
         self.gamma = config['gamma']
-        self.update_every = config['reinforce_update_every']
+        self.update_every = config['update_every']
         self.concatenate_objective = config['concatenate_objective']
         self.last_loss = np.nan
         self.rewards_epoch = []

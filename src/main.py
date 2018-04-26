@@ -35,10 +35,9 @@ env.reset()
 if config["agent_type"] == 'random':
     rl_agent = AbstractAgent(config, env.action_space())
 elif 'dqn' in config["agent_type"]:
-    rl_agent = DQNAgent(config, env.action_space(), env.state_dim(), env.is_multi_objective)
+    rl_agent = DQNAgent(config, env.action_space(), env.state_objective_dim(), env.is_multi_objective)
 elif config["agent_type"] == 'reinforce':
-    # Todo : separate dqn params from reinforce params
-    rl_agent = ReinforceAgent(config['dqn_params'], env.action_space())
+    rl_agent = ReinforceAgent(config['reinforce_params'], env.action_space())
 else:
     assert False, "Wrong agent type : {}".format(config["agent_type"])
 
@@ -52,7 +51,6 @@ test_every = config["train_params"]["test_every"]
 n_epochs_test = config["train_params"]["n_epochs_test"]
 
 verbosity = config["io"]["verbosity"]
-gif_verbosity = config["io"]["gif_verbosity"]
 
 
 def train(agent, env):
@@ -64,19 +62,29 @@ def train(agent, env):
         eps_decay = n_epochs / 4.
         eps_range = [epsilon_init * np.exp(-1. * i / eps_decay) for i in range(n_epochs)]
 
+    logging.info(" ")
+    logging.info("Begin Training")
+    logging.info("===============")
+
     for epoch in range(n_epochs):
         state = env.reset(show=False)
         done = False
-        video = []
         time_out = 20
-        time = 0
+        num_step = 0
 
-        while not done and time < time_out:
-            time += 1
+        if epoch % test_every == 0:
+            reward, length = test(agent, env, config, epoch)
+            logging.info("Epoch {} test : averaged reward {:.2f}, average length {:.2f}".format(epoch, reward, length))
 
-            if gif_verbosity != 0:
-                if epoch % gif_verbosity == 0 and epoch != 0:
-                    video.append(env.render(display=False))
+            with open(save_path.format('train_lengths'), 'a+') as f:
+                f.write("{} {}\n".format(epoch, length))
+            with open(save_path.format('train_rewards'), 'a+') as f:
+                    f.write("{} {}\n".format(epoch, reward))
+            make_eval_plot(save_path.format('train_lengths'), save_path.format('eval_curve.png'))
+
+
+        while not done and num_step < time_out:
+            num_step += 1
 
             action = agent.forward(state, eps_range[epoch])
             next_state, reward, done, _ = env.step(action)
@@ -85,24 +93,13 @@ def train(agent, env):
 
         agent.callback(epoch)
 
-        if epoch % test_every == 0:
-            reward, length = test(agent, env)
-            logging.info("Epoch {} test : averaged reward {:.2f}, average length {:.2f}".format(epoch, reward, length))
-            logging.info("Eps = {}".format(eps_range[epoch]))
-            with open(save_path.format('train_lengths'), 'a+') as f:
-                f.write("{} {}\n".format(epoch, length))
-            with open(save_path.format('train_rewards'), 'a+') as f:
-                    f.write("{} {}\n".format(epoch, reward))
-            make_eval_plot(save_path.format('train_lengths'), save_path.format('eval_curve.png'))
 
 
-        if gif_verbosity != 0:
-            if epoch % gif_verbosity == 0 and epoch != 0:
-                make_video(video, save_path.format('train_' + str(epoch)))
 
-def test(agent, env):
+def test(agent, env, config, num_test):
     lengths, rewards = [], []
     obj_type = config['env_type']['objective']['type']
+    number_epochs_to_store = config['io']['num_epochs_to_store']
 
     if obj_type in ['image', 'image_no_bkg', 'random_image']:
         # For now, test only on previously seen examples
@@ -118,20 +115,32 @@ def test(agent, env):
 
         for epoch in range(n_epochs_test):
             state = env.reset(show=False)
+
             done = False
             time_out = 20
-            time = 0
+            num_step = 0
             epoch_rewards = []
+            video = []
 
-            while not done and time < time_out:
-                time += 1
+            if epoch < number_epochs_to_store:
+                video.append(env.render(display=False))
+
+            while not done and num_step < time_out:
+                num_step += 1
                 action = agent.forward(state, 0.)
                 next_state, reward, done, _ = env.step(action)
+
+                if epoch < number_epochs_to_store:
+                    video.append(env.render(display=False))
+
                 epoch_rewards += [reward]
                 state = next_state
 
             rewards.append(np.sum(epoch_rewards))
             lengths.append(len(epoch_rewards))
+
+            if epoch < number_epochs_to_store:
+                make_video(video, save_path.format('test_{}_{}'.format(num_test, epoch)))
 
     return np.mean(rewards), np.mean(lengths)
 
