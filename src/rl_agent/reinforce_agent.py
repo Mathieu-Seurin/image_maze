@@ -79,7 +79,12 @@ class ReinforceAgent(object):
 
             old_params = freeze_as_np_dict(self.forward_model.state_dict())
 
-            policy_loss = torch.cat(policy_loss).sum()
+            try:
+                policy_loss = torch.cat(policy_loss).sum()
+            except RuntimeError:
+                logging.warning('Invalid loss encountered')
+                return
+
             self.forward_model.optimizer.zero_grad()
             policy_loss.backward(retain_graph=False)
             for param in self.forward_model.parameters():

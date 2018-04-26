@@ -102,6 +102,14 @@ def set_seed(config):
         np.random.seed(seed)
         torch.manual_seed(seed)
 
+def write_seed_extensions(seed_range, out_name='../config/seed_extensions/'):
+    for seed in seed_range:
+        with open(out_name + str(seed), 'w+', encoding="utf8") as f_extension:
+            json.dump({"seed": seed}, f_extension)
+
+
+
+
 if __name__ == "__main__":
 
     print("TESTING EXTENSION")

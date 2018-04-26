@@ -103,3 +103,4 @@ ENV/
 *out*
 *obj_*
 *bw_*
+*.npy
