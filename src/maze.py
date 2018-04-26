@@ -23,7 +23,8 @@ class ImageGridWorld(object):
         self.n_row = config["n_row"]
         self.n_col = config["n_col"]
         self.position = []
-
+        self.n_objectives = 1 # Default
+        self.is_multi_objective = False #Default
 
         (self.digits_im, self.digits_labels), (_, _) = mnist.load_data()
         (self.fashion_im, self.fashion_labels), (_, _) = fashion_mnist.load_data()
@@ -83,6 +84,7 @@ class ImageGridWorld(object):
             objective_shuffler.shuffle(self.all_objectives)
             # Add seed for reproducibility
             self.n_objectives = config["objective"]["curriculum"]["n_objective"]
+            self.is_multi_objective = self.n_objectives < 1
             self.objective_changing_every = config["objective"]["curriculum"]["change_every"]
 
             self.objectives = self.all_objectives[:self.n_objectives]
@@ -144,6 +146,7 @@ class ImageGridWorld(object):
             x = np.random.randint(self.n_col-1)
             self.position = (x, y)
             position_on_reward = bool(self.get_reward())
+
         return self.get_state()
 
     def step(self, action):
@@ -352,6 +355,8 @@ class ImageGridWorld(object):
 
     def action_space(self):
         return 4
+    def state_dim(self):
+        return self.get_state()['env_state'].shape
 
 
 if __name__ == "__main__":

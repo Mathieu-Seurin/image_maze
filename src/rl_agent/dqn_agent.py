@@ -12,24 +12,33 @@ import random
 from .agent_utils import ReplayMemory, Transition, Flatten, check_params_changed, freeze_as_np_dict
 from .dqn_models import DQN
 
+from rl_agent.FiLM_agent import FilmedNet
+
 import logging
 
-# GPU compatibility setup
-use_cuda = torch.cuda.is_available()
-FloatTensor = torch.cuda.FloatTensor if use_cuda else torch.FloatTensor
-LongTensor = torch.cuda.LongTensor if use_cuda else torch.LongTensor
-ByteTensor = torch.cuda.ByteTensor if use_cuda else torch.ByteTensor
-Tensor = FloatTensor
-
+from .gpu_utils import use_cuda, FloatTensor, LongTensor, ByteTensor, Tensor
 
 class DQNAgent(object):
-    def __init__(self, config, n_action):
-        self.forward_model = DQN(config, n_action)
+    def __init__(self, config, n_action, state_dim, is_multi_objective):
+
+        if config['agent_type'] == "resnet_dqn":
+            config = config['resnet_dqn_params']
+            model = FilmedNet(config=config,
+                              n_actions=n_action,
+                              state_dim=state_dim,
+                              is_multi_objective=is_multi_objective)
+
+        elif config["agent_type"] == "dqn":
+            config = config['dqn_params']
+            model = DQN(config, n_action, is_multi_objective)
+        else:
+            raise NotImplementedError("model_type not recognized")
+
+        self.forward_model = model
         self.ref_model = deepcopy(self.forward_model)
         if use_cuda:
             self.forward_model.cuda()
             self.ref_model.cuda()
-        self.concatenate_objective = config['concatenate_objective']
         self.n_action = n_action
         self.memory = ReplayMemory(16384)
         self.gamma = self.forward_model.gamma
@@ -42,37 +51,39 @@ class DQNAgent(object):
             self.ref_model.load_state_dict(self.forward_model.state_dict())
 
     def forward(self, state, epsilon=0.1):
-        # state is {"env_state" : img, "objective": img}
-        state_loc = FloatTensor(state['env_state'])
-        if self.concatenate_objective:
-            state_loc = torch.cat((state_loc, FloatTensor(state['objective'])))
 
-        state = state_loc
+        # if self.concatenate_objective:
+        #     state_loc = torch.cat((state_loc, FloatTensor(state['objective'])))
         plop = np.random.rand()
         if plop < epsilon:
             idx = np.random.randint(self.n_action)
         else:
-            state = FloatTensor(state)
-            if len(state.shape) == 3:
-                state = state.unsqueeze(0)
-            idx = self.forward_model(Variable(state, volatile=True).type(FloatTensor)).data.max(1)[1].cpu().numpy()[0]
+            # state is {"env_state" : img, "objective": img}
+            var_state = dict()
+            var_state['env_state'] = Variable(FloatTensor(state['env_state']).unsqueeze(0), volatile=True)
+            var_state['objective'] = Variable(FloatTensor(state['objective']).unsqueeze(0), volatile=True)
+            idx = self.forward_model(var_state).data.max(1)[1].cpu().numpy()[0]
+
         return idx
 
     def optimize(self, state, action, next_state, reward, batch_size=16):
         # state is {"env_state" : img, "objective": img}
         state_loc = FloatTensor(state['env_state'])
         next_state_loc = FloatTensor(next_state['env_state'])
+        objective = FloatTensor(state['objective'])
 
-        if self.concatenate_objective:
-            state_loc = torch.cat((state_loc, FloatTensor(state['objective'])))
-            next_state_loc = torch.cat((next_state_loc, FloatTensor(next_state['objective'])))
+        # if self.concatenate_objective:
+        #     state_loc = torch.cat((state_loc, FloatTensor(state['objective'])))
+        #     next_state_loc = torch.cat((next_state_loc, FloatTensor(next_state['objective'])))
 
+        objective = objective.unsqueeze(0)
         state = state_loc.unsqueeze(0)
         next_state = next_state_loc.unsqueeze(0)
         action = LongTensor([int(action)]).view((1, 1,))
         reward = FloatTensor([reward])
 
-        self.memory.push(state, action, next_state, reward)
+        self.memory.push(state, action, next_state, reward, objective)
+
         if len(self.memory.memory) < batch_size:
             batch_size = len(self.memory.memory)
 
@@ -80,28 +91,41 @@ class DQNAgent(object):
         batch = Transition(*zip(*transitions))
 
         state_batch = Variable(torch.cat(batch.state))
+        objective_batch = Variable(torch.cat(batch.objective))
+
         action_batch = Variable(torch.cat(batch.action))
         reward_batch = Variable(torch.cat(batch.reward))
 
         if len(state_batch.shape) == 3:
             state_batch = state_batch.unsqueeze(0)
+            objective_batch.unsqueeze(0)
+
+        state_obj = dict()
+        state_obj['env_state'] = state_batch
+        state_obj['objective'] = objective_batch
+
+        state_action_values = self.forward_model(state_obj).gather(1, action_batch)
+
 
         non_final_mask = ByteTensor(tuple(map(lambda s: s is not None, batch.next_state)))
         non_final_next_states = Variable(torch.cat([s for s in batch.next_state if s is not None]), volatile=True)
+        non_final_state_corresponding_objective = Variable(torch.cat([batch.objective[i] for i, s in enumerate(batch.next_state) if s is not None]), volatile=True)
 
-        state_action_values = self.forward_model(state_batch).gather(1, action_batch)
+        non_final_next_states_obj = dict()
+        non_final_next_states_obj['env_state'] = non_final_next_states
+        non_final_next_states_obj['objective'] = non_final_state_corresponding_objective
+
 
         if len(non_final_next_states.shape) == 3:
             non_final_next_states = non_final_next_states.unsqueeze(0)
 
         next_state_values = Variable(torch.zeros(batch_size).type(Tensor))
-        next_state_values[non_final_mask] = self.forward_model(non_final_next_states).max(1)[0]
+        next_state_values[non_final_mask] = self.ref_model(non_final_next_states_obj).max(1)[0]
 
         expected_state_action_values = (next_state_values * self.gamma) + reward_batch
         expected_state_action_values = Variable(expected_state_action_values.data)
 
         loss = F.mse_loss(state_action_values, expected_state_action_values)
-
 
         old_params = freeze_as_np_dict(self.forward_model.state_dict())
         self.forward_model.optimizer.zero_grad()

@@ -14,7 +14,7 @@ Tensor = FloatTensor
 
 class DQN(nn.Module):
 
-    def __init__(self, config, n_out):
+    def __init__(self, config, n_out, is_multi_objective):
         super(DQN, self).__init__()
         self.output_size = n_out
 
@@ -26,8 +26,12 @@ class DQN(nn.Module):
         self.conv_shapes = config['conv_shapes']
         self.dense_shapes = config['dense_shapes'] + [self.output_size]
         self.use_batch_norm = config['use_batch_norm'] == 'True'
+
         self.lr = config['learning_rate']
         self.gamma = config['gamma']
+
+        # Todo use this instead of config["concatenate_input"]
+        self.is_multi_objective = is_multi_objective
 
         # At least 1 conv, then dense head
         for idx, shape in enumerate(self.conv_shapes):

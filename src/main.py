@@ -26,13 +26,16 @@ config, exp_identifier, save_path = load_config_and_logger(config_file=args.conf
                     exp_dir=args.exp_dir, args=args, extension_file=args.extension)
 logging = logging.getLogger()
 
+
 env = ImageGridWorld(config=config["env_type"], show=False)
+env.reset()
 
 if config["agent_type"] == 'random':
     rl_agent = AbstractAgent(config, env.action_space())
-elif config["agent_type"] == 'dqn':
-    rl_agent = DQNAgent(config['dqn_params'], env.action_space())
+elif 'dqn' in config["agent_type"]:
+    rl_agent = DQNAgent(config, env.action_space(), env.state_dim(), env.is_multi_objective)
 elif config["agent_type"] == 'reinforce':
+    # Todo : separate dqn params from reinforce params
     rl_agent = ReinforceAgent(config['dqn_params'], env.action_space())
 else:
     assert False, "Wrong agent type : {}".format(config["agent_type"])
@@ -82,7 +85,8 @@ def train(agent, env):
 
         if epoch % test_every == 0:
             reward, length = test(agent, env)
-            logging.info("Epoch {} test : averaged reward {}, average length {}".format(epoch, reward, length))
+            logging.info("Epoch {} test : averaged reward {:.2f}, average length {:.2f}".format(epoch, reward, length))
+            logging.info("Eps = {}".format(eps_range[epoch]))
             with open(save_path.format('train_lengths'), 'a+') as f:
                 f.write("{} {}\n".format(epoch, length))
             with open(save_path.format('train_rewards'), 'a+') as f:

@@ -6,7 +6,7 @@ import random
 import logging
 
 
-Transition = namedtuple('Transition', ('state', 'action', 'next_state', 'reward'))
+Transition = namedtuple('Transition', ('state', 'action', 'next_state', 'reward', 'objective'))
 
 class Flatten(nn.Module):
   def forward(self, x):

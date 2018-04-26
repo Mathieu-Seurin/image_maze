@@ -1,5 +1,6 @@
 {
   "name": "basic_config",
+  "seed": 42,
   "env_type":
   {
     "n_row": 5,
@@ -8,31 +9,48 @@
     "change_maze" : 0,
     "maze_type" : "sequential",
     "objective" : {
-      "modality" : "fixed",
+      "type" : "image",
       "curriculum":
       {
-        "n_objective" : 3,
+        "n_objective" : 1,
         "change_every" : 10
       }
 
     }
   },
-  "optim": {
-    "learning_rate" : 1e-4,
-    "n_episode" : 2000
+  "train_params": {
+    "epsilon_schedule": ["exp", 0.95],
+    "batch_size": 64,
+    "n_epochs" : 2000,
+    "test_every": 100,
+    "n_epochs_test": 30
   },
-  "seed": 42,
-  "verbosity": 1,
-  "gif_verbosity": 20,
+  "io": {
+    "verbosity": 1,
+    "gif_verbosity": 100
+  },
+
+  "agent_type":"resnet_dqn",
+
+
+  "resnet_dqn_params":{
+    "learning_rate" : 1e-6,
+    "optimizer": "RMSprop",
+    "gamma": 0.99,
+    "n_resblock" : 2,
+    "n_hidden" : 200,
+    "use_film" : false
+  },
+
   "dqn_params":
   {
-  "input_resolution": [28, 28],
-  "n_channels": 15,
-  "gamma":0.99,
-  "conv_shapes": [16],
-  "dense_shapes": [],
-  "learning_rate" : 1e-6,
-  "optimizer": "Adam",
-  "use_batch_norm": "True"
+    "input_resolution": [28, 28],
+    "n_channels": 18,
+    "conv_shapes": [16],
+    "dense_shapes": [],
+    "learning_rate" : 1e-7,
+    "optimizer": "RMSprop",
+    "use_batch_norm": false,
+    "gamma": 0.99
   }
 }
