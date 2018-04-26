@@ -9,7 +9,7 @@ import torch.nn.functional as F
 from torch.autograd import Variable
 from copy import deepcopy
 import random
-from .agent_utils import ReplayMemory, Transition, Flatten, check_params_changed, freeze_as_np_dict
+from .agent_utils import ReplayMemory, Transition, Flatten, check_params_changed, freeze_as_np_dict, compute_slow_params_update
 from .dqn_models import DQN
 
 from rl_agent.FiLM_agent import FilmedNet
@@ -42,6 +42,7 @@ class DQNAgent(object):
         self.n_action = n_action
         self.memory = ReplayMemory(16384)
         self.gamma = self.forward_model.gamma
+        self.tau = config['tau']
 
     def apply_config(self, config):
         pass
@@ -106,7 +107,6 @@ class DQNAgent(object):
 
         state_action_values = self.forward_model(state_obj).gather(1, action_batch)
 
-
         non_final_mask = ByteTensor(tuple(map(lambda s: s is not None, batch.next_state)))
         non_final_next_states = Variable(torch.cat([s for s in batch.next_state if s is not None]), volatile=True)
         non_final_state_corresponding_objective = Variable(torch.cat([batch.objective[i] for i, s in enumerate(batch.next_state) if s is not None]), volatile=True)
@@ -123,11 +123,10 @@ class DQNAgent(object):
         next_state_values[non_final_mask] = self.ref_model(non_final_next_states_obj).max(1)[0]
 
         expected_state_action_values = (next_state_values * self.gamma) + reward_batch
-        expected_state_action_values = Variable(expected_state_action_values.data)
 
         loss = F.mse_loss(state_action_values, expected_state_action_values)
 
-        old_params = freeze_as_np_dict(self.forward_model.state_dict())
+        #old_params = freeze_as_np_dict(self.forward_model.state_dict())
         self.forward_model.optimizer.zero_grad()
         loss.backward()
         for param in self.forward_model.parameters():
@@ -135,6 +134,9 @@ class DQNAgent(object):
             param.grad.data.clamp_(-1., 1.)
         self.forward_model.optimizer.step()
 
-        new_params = freeze_as_np_dict(self.forward_model.state_dict())
-        check_params_changed(old_params, new_params)
+        # Update slowly ref model towards fast model, to stabilize training.
+        self.ref_model.load_state_dict(compute_slow_params_update(self.ref_model, self.forward_model, self.tau))
+
+        #new_params = freeze_as_np_dict(self.forward_model.state_dict())
+        #check_params_changed(old_params, new_params)
         return loss.data[0]

@@ -39,7 +39,8 @@
     "gamma": 0.99,
     "n_resblock" : 2,
     "n_hidden" : 200,
-    "use_film" : false
+    "use_film" : false,
+    "tau" : 0.001
   },
 
   "dqn_params":
