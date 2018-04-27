@@ -35,7 +35,7 @@ if config["agent_type"] == 'random':
 elif config["agent_type"] == 'dqn':
     rl_agent = DQNAgent(config['dqn_params'], env.action_space())
 elif config["agent_type"] == 'reinforce':
-    rl_agent = ReinforceAgent(config['dqn_params'], env.action_space())
+    rl_agent = ReinforceAgent(config['reinforce_params'], env.action_space())
 else:
     assert False, "Wrong agent type : {}".format(config["agent_type"])
 

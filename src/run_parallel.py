@@ -38,7 +38,7 @@ def make_smoothed_training_curve(exp_dir='out/test_parallel'):
     plt.errorbar(steps, means, errors)
     plt.savefig(exp_dir + '/smoothed_training_curve.png')
 
-dir = 'out/task4_reinforce'
+dir = 'out/task2_10_objs_reinforce'
 repeat_exp_parallel('../config/base_reinforce.json', out_dir=dir)
 make_smoothed_training_curve(dir)
 

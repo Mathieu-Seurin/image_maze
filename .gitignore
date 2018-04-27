@@ -104,5 +104,6 @@ ENV/
 *obj_*
 *bw_*
 *.npy
-*/train/*
-*/test/*
+src/pretraining/train/*
+src/pretraining/test/*
+*.ckpt*

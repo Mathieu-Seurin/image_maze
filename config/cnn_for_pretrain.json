@@ -34,13 +34,13 @@
   {
   "concatenate_objective": "True",
   "input_resolution": [28, 28],
-  "n_channels": 18,
+  "n_channels": 3,
   "gamma":0.99,
-  "conv_shapes": [16, 16],
-  "dense_shapes": [],
+  "conv_shapes": [256, 128],
+  "dense_shapes": [64],
   "learning_rate" : 1e-3,
   "optimizer": "Adam",
-  "use_batch_norm": "True",
+  "use_batch_norm": "False",
   "reinforce_update_every": 50
   }
 }
