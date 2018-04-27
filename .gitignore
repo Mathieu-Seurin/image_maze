@@ -104,3 +104,5 @@ ENV/
 *obj_*
 *bw_*
 *.npy
+*/train/*
+*/test/*
