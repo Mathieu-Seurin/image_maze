@@ -136,11 +136,12 @@ def train_model(bi_output_model, optimizer, scheduler, num_epochs=25):
             for data in sampler(X, Y_class, Y_color, batch_size=batch_size, n_to_sample=n_to_sample):
                 inputs, class_labels_, color_labels_ = data
 
-                color_labels = color_labels_ / 255.  # Normalize output for faster convergence
+                # Normalize output for faster convergence
+                color_labels = color_labels_ / 255.
                 class_labels = class_labels_
 
-
-                inputs = FloatTensor(inputs)
+                # Normalize inputs for consistency
+                inputs = FloatTensor(inputs) / 255.
                 class_labels = LongTensor(class_labels)
                 color_labels = FloatTensor(color_labels)
 
