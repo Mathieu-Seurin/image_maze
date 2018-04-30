@@ -27,6 +27,12 @@ def load_config_and_logger(config_file, exp_dir, args=None, extension_file=None)
     if not os.path.isdir(save_path.format('')):
         os.makedirs(save_path.format(''))
 
+    # Write which config files were used, in case the names in config are not set
+    with open(save_path.format("config_files.txt"), "w") as f:
+        f.write(config_file)
+        if extension_file:
+            f.write(config_file)
+
     # create logger
     logger = create_logger(save_path.format('train.log'))
     logger.info("Config Hash {}".format(exp_identifier))

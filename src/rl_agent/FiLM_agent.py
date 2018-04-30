@@ -154,25 +154,28 @@ class FilmedNet(nn.Module):
 
         self.lr = config["learning_rate"]
         self.gamma = config["gamma"]
+        self.out_channel = config["head_channel"]
 
 
         self.n_resblocks = config["n_resblock"]
         self.n_hidden = config["n_hidden"]
 
         self.use_film = config["use_film"]
+        self.is_multi_objective = is_multi_objective
 
-        self.num_channel_per_state = state_dim['env_state'][0]
+        if self.is_multi_objective and not self.use_film:
+            self.num_channel_per_state = state_dim['concatenated'][0]
+        else:
+            self.num_channel_per_state = state_dim['env_state'][0]
         self.num_pixel = state_dim['env_state'][1] * state_dim['env_state'][2]
 
-        self.num_channel_per_objective = state_dim['objective']
-        self.is_multi_objective = is_multi_objective
+        self.num_channel_per_objective = state_dim['objective'][0]
 
         if is_multi_objective and self.use_film:
             self.film_gen = VisionFilmGen(num_features_per_block=self.num_channel_per_state,
                                           num_resblock_to_modulate=self.n_resblocks,
                                           num_channel_in=self.num_channel_per_objective)
 
-        self.out_channel = 3
         self.n_actions = n_actions
 
         self.resblocks = nn.ModuleList()

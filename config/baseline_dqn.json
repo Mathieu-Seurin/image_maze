@@ -1,0 +1,21 @@
+{
+  "name": "basic_dqn",
+
+  "train_params": {
+    "batch_size": 64
+  },
+
+  "agent_type":"dqn",
+
+  "dqn_params":
+  {
+    "conv_shapes": [16],
+    "dense_shapes": [],
+    "learning_rate" : 1e-5,
+    "optimizer": "RMSprop",
+    "use_batch_norm": false,
+    "gamma": 0.99,
+    "tau" : 0.0001
+  }
+
+}

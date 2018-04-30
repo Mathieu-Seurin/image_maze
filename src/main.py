@@ -104,16 +104,20 @@ def test(agent, env, config, num_test):
     if obj_type in ['image', 'image_no_bkg', 'random_image']:
         # For now, test only on previously seen examples
         test_objectives = env.objectives
-    elif obj_type == 'fixed':
-        test_objectives = [env.reward_position]
     else:
         assert False, 'Objective {} not supported'.format(obj_type)
 
-    for objective in test_objectives:
+    for num_objective, objective in enumerate(test_objectives):
         logging.debug('Switching objective to {}'.format(objective))
         env.reward_position = objective
 
         for epoch in range(n_epochs_test):
+
+            # WARNING FREEZE COUNT SO THE MAZE DOESN'T CHANGE
+            env.count_ep_in_this_maze = 0
+            env.count_current_objective = 0
+
+
             state = env.reset(show=False)
 
             done = False
@@ -140,7 +144,7 @@ def test(agent, env, config, num_test):
             lengths.append(len(epoch_rewards))
 
             if epoch < number_epochs_to_store:
-                make_video(video, save_path.format('test_{}_{}'.format(num_test, epoch)))
+                make_video(video, save_path.format('test_{}_{}_{}'.format(num_test, num_objective, epoch)))
 
     return np.mean(rewards), np.mean(lengths)
 

@@ -12,7 +12,7 @@
       "type" : "image",
       "curriculum":
       {
-        "n_objective" : 1,
+        "n_objective" : 5,
         "change_every" : 10
       }
 
@@ -23,15 +23,34 @@
     "batch_size": 64,
     "n_epochs" : 2000,
     "test_every": 100,
-    "n_epochs_test": 10
+    "n_epochs_test": 7
   },
   "io": {
     "verbosity": 1,
-    "num_epochs_to_store": 0
+    "num_epochs_to_store": 2
   },
 
-  "agent_type":"resnet_dqn",
+  "dqn_params":
+  {
+    "conv_shapes": [16],
+    "dense_shapes": [],
+    "learning_rate" : 1e-5,
+    "optimizer": "RMSprop",
+    "use_batch_norm": false,
+    "gamma": 0.99,
+    "tau" : 0.0001
+  },
 
+  "reinforce_params": {
+    "conv_shapes": [16],
+    "dense_shapes": [],
+    "learning_rate" : 1e-5,
+    "optimizer": "Adam",
+    "use_batch_norm": false,
+    "gamma": 0.99,
+    "update_every": 2,
+    "concatenate_objective" : true
+  },
 
   "resnet_dqn_params":{
     "learning_rate" : 1e-5,
@@ -41,31 +60,7 @@
     "n_hidden" : 200,
     "use_film" : false,
     "tau" : 0.0001
-  },
-
-  "dqn_params":
-  {
-    "input_resolution": [28, 28],
-    "n_channels": 18,
-    "conv_shapes": [16],
-    "dense_shapes": [],
-    "learning_rate" : 1e-7,
-    "optimizer": "RMSprop",
-    "use_batch_norm": false,
-    "gamma": 0.99
-  },
-
-  "reinforce_params": {
-    "input_resolution": [28, 28],
-    "n_channels": 18,
-    "conv_shapes": [16],
-    "dense_shapes": [],
-    "learning_rate" : 1e-5,
-    "optimizer": "Adam",
-    "use_batch_norm": false,
-    "gamma": 0.99,
-    "update_every": 2,
-    "concatenate_objective" : true
   }
+
 
 }

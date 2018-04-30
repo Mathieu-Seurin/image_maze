@@ -1,0 +1,23 @@
+{
+  "name": "basic_reinforce",
+
+  "train_params": {
+    "batch_size": 64
+  },
+
+  "agent_type":"reinforce",
+
+  "reinforce_params": {
+    "input_resolution": [28, 28],
+    "n_channels": 18,
+    "conv_shapes": [16],
+    "dense_shapes": [],
+    "learning_rate" : 1e-4,
+    "optimizer": "Adam",
+    "use_batch_norm": false,
+    "gamma": 0.99,
+    "update_every": 2,
+    "concatenate_objective" : true
+  }
+
+}
