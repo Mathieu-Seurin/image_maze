@@ -101,7 +101,7 @@ class ReinforceAgent(object):
     def forward(self, state, epsilon=0.1):
         # Epsilon has no influence, keep it for compatibility
         state_loc = FloatTensor(state['env_state'])
-        if self.concatenate_objective:
+        if self.concatenate_objective == 'True':
             state_loc = torch.cat((state_loc, FloatTensor(state['objective'])))
         state_loc = state_loc.unsqueeze(0)
         probs = self.forward_model(Variable(state_loc, volatile=True))

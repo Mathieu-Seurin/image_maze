@@ -1,0 +1,46 @@
+{
+  "name": "basic_config",
+  "agent_type":"reinforce",
+  "seed": 42,
+  "env_type":
+  {
+    "n_row": 5,
+    "n_col": 4,
+    "state_type" : "surrounding",
+    "change_maze" : 0,
+    "maze_type" : "sequential",
+    "objective" : {
+      "type" : "image",
+      "curriculum":
+      {
+        "n_objective" : 10,
+        "change_every" : 10
+      }
+
+    }
+  },
+  "train_params": {
+    "epsilon_schedule": ["exp", 1],
+    "batch_size": 32,
+    "n_epochs" : 10000,
+    "test_every": 50,
+    "n_epochs_test": 10
+  },
+  "io": {
+    "verbosity": 1,
+    "gif_verbosity": 500
+  },
+  "reinforce_params":
+  {
+  "concatenate_objective": "True",
+  "input_resolution": [28, 28],
+  "n_channels": 18,
+  "gamma":0.99,
+  "conv_shapes": [16, 16],
+  "dense_shapes": [],
+  "learning_rate" : 1e-3,
+  "optimizer": "Adam",
+  "use_batch_norm": "True",
+  "reinforce_update_every": 50
+  }
+}

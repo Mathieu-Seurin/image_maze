@@ -104,3 +104,8 @@ ENV/
 *obj_*
 *bw_*
 *.npy
+src/pretraining/train/*
+src/pretraining/test/*
+*.ckpt*
+
+src/feature_map_maze/maze_images/*

@@ -85,6 +85,25 @@ def make_eval_plot(filename_in, filename_out):
     plt.savefig(filename_out)
     plt.close()
 
+
+def batch_normalizer(image_batch):
+    # Takes a batch (n_samples, 3, w, h) and normalize each image
+    # to what is expected by resnet (a priori, works)
+    obj_mean = [0.485, 0.456, 0.406]
+    obj_std = [0.229, 0.224, 0.225]
+
+    n_samples = image_batch.shape[0]
+
+    for i in range(n_samples):
+        for c in range(3):
+            # First, scale to correct variance
+            image_batch[i, c] = image_batch[i, c] * (obj_std[c] / image_batch[i, c].std())
+            # Then, move the mean
+            image_batch[i, c] = image_batch[i, c] + obj_mean[c] - image_batch[i, c].mean()
+            # print(image_batch[i, c].shape, image_batch[i, c].mean().data.cpu().numpy(), obj_mean[c], image_batch[i, c].std().data.cpu().numpy(), obj_std[c])
+
+        return image_batch
+
 if __name__ == "__main__":
 
     # Create image with channel being the first dimension
