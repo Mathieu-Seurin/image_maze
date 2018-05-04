@@ -8,12 +8,14 @@
     "n_col": 4,
     "state_type" : "surrounding",
     "change_maze" : 0,
+    "preproc_state": "False",
+    "use_normalization": "False",
     "maze_type" : "sequential",
     "objective" : {
-      "type" : "image",
+      "type" : "same_image",
       "curriculum":
       {
-        "n_objective" : 10,
+        "n_objective" : 3,
         "change_every" : 10
       }
 
@@ -21,14 +23,14 @@
   },
   "train_params": {
     "epsilon_schedule": ["exp", 1],
-    "batch_size": 32,
-    "n_epochs" : 10000,
+    "batch_size": 128,
+    "n_epochs" : 1000,
     "test_every": 50,
     "n_epochs_test": 10
   },
   "io": {
     "verbosity": 1,
-    "gif_verbosity": 500
+    "gif_verbosity": 100
   },
   "reinforce_params":
   {

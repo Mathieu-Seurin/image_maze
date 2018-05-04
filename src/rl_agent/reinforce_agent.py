@@ -100,9 +100,9 @@ class ReinforceAgent(object):
 
     def forward(self, state, epsilon=0.1):
         # Epsilon has no influence, keep it for compatibility
-        state_loc = FloatTensor(state['env_state'])
+        state_loc = state['env_state']
         if self.concatenate_objective == 'True':
-            state_loc = torch.cat((state_loc, FloatTensor(state['objective'])))
+            state_loc = torch.cat((state_loc.cuda(), state['objective'].cuda()))
         state_loc = state_loc.unsqueeze(0)
         probs = self.forward_model(Variable(state_loc, volatile=True))
         m = Categorical(probs)
@@ -113,8 +113,8 @@ class ReinforceAgent(object):
         # Just store all relevant info to do batch learning at end of epoch
         self.rewards_epoch.append(reward)
         self.actions_epoch.append(action)
-        state_loc = Tensor(state['env_state'])
+        state_loc = state['env_state']
         if self.concatenate_objective:
-            state_loc = torch.cat((state_loc, FloatTensor(state['objective'])))
+            state_loc = torch.cat((state_loc, state['objective']))
         self.states_epoch.append(state_loc.unsqueeze(0))
         return self.last_loss

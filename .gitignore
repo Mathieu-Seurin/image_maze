@@ -108,4 +108,5 @@ src/pretraining/train/*
 src/pretraining/test/*
 *.ckpt*
 
-src/feature_map_maze/maze_images/*
+src/maze_images*
+src/feature_map_maze/maze_images*

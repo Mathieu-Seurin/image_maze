@@ -3,7 +3,9 @@ import logging
 import time
 from itertools import count
 
-from maze import ImageGridWorld
+# from maze import ImageGridWorld
+from feature_maze import ImageFmapGridWorld
+
 from rl_agent.basic_agent import AbstractAgent
 from rl_agent.dqn_agent import DQNAgent
 from rl_agent.reinforce_agent import ReinforceAgent
@@ -28,7 +30,9 @@ config, exp_identifier, save_path = load_config_and_logger(config_file=args.conf
 logging = logging.getLogger()
 set_seed(config)
 
-env = ImageGridWorld(config=config["env_type"], show=False)
+# env = ImageGridWorld(config=config["env_type"], show=False)
+
+env = ImageFmapGridWorld(config=config["env_type"])
 
 if config["agent_type"] == 'random':
     rl_agent = AbstractAgent(config, env.action_space())
@@ -73,7 +77,7 @@ def train(agent, env):
 
             if gif_verbosity != 0:
                 if epoch % gif_verbosity == 0 and epoch != 0:
-                    video.append(env.render(display=False))
+                    video.append(env.render(show=False))
 
             action = agent.forward(state, eps_range[epoch])
             next_state, reward, done, _ = env.step(action)
@@ -100,11 +104,12 @@ def test(agent, env):
     lengths, rewards = [], []
     obj_type = config['env_type']['objective']['type']
 
-    if obj_type in ['image', 'image_no_bkg', 'random_image']:
+
+    if obj_type == 'fixed':
+        test_objectives = [env.reward_position]
+    elif 'image' in obj_type.split('_'):
         # For now, test only on previously seen examples
         test_objectives = env.objectives
-    elif obj_type == 'fixed':
-        test_objectives = [env.reward_position]
     else:
         assert False, 'Objective {} not supported'.format(obj_type)
 
