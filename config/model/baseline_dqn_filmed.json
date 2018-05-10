@@ -1,0 +1,29 @@
+{
+  "name": "dqn_filmed",
+
+  "agent_type":"resnet_dqn",
+
+  "resnet_dqn_params":{
+
+    "film_gen_params":{
+      "n_intermediate_channel": 16,
+      "n_final_channel": 32,
+      "n_hidden_gamma" : 400,
+      "n_hidden_beta" : 400,
+      "dropout" : 0.5
+
+    },
+
+    "learning_rate" : 1e-5,
+    "optimizer": "RMSprop",
+    "discount_factor": 0.99,
+    "n_resblock" : 2,
+    "resblock_dropout": 0,
+    "fc_dropout": 0.5,
+    "n_hidden" : 200,
+    "head_channel" : 3,
+    "use_film" : true,
+    "tau" : 0.0001
+  }
+
+}

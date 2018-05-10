@@ -11,7 +11,7 @@
     "learning_rate" : 1e-5,
     "optimizer": "RMSprop",
     "gamma": 0.99,
-    "n_resblock" : 2,
+    "n_resblock" : 4,
     "n_hidden" : 200,
     "head_channel" : 3,
     "use_film" : true,

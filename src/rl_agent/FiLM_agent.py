@@ -11,140 +11,170 @@ from .gpu_utils import FloatTensor
 
 
 class FiLM(nn.Module):
-  """
-  A Feature-wise Linear Modulation Layer from
-  'FiLM: Visual Reasoning with a General Conditioning Layer'
-  """
-  def forward(self, x, gammas, betas):
-    gammas = gammas.unsqueeze(2).unsqueeze(3).expand_as(x)
-    betas = betas.unsqueeze(2).unsqueeze(3).expand_as(x)
-    return (gammas * x) + betas
+    """
+    A Feature-wise Linear Modulation Layer from
+    'FiLM: Visual Reasoning with a General Conditioning Layer'
+    """
+    def forward(self, x, gammas, betas):
+        gammas = gammas.unsqueeze(2).unsqueeze(3).expand_as(x)
+        betas = betas.unsqueeze(2).unsqueeze(3).expand_as(x)
+        return (gammas * x) + betas
 
 
 class FiLMedResBlock(nn.Module):
-  def __init__(self, in_dim, out_dim=None, with_residual=True, with_batchnorm=True,
-               with_cond=[False], dropout=0, num_extra_channels=0, extra_channel_freq=1,
-               with_input_proj=0, num_cond_maps=0, kernel_size=3, batchnorm_affine=False,
-               num_layers=1, condition_method='bn-film', debug_every=float('inf')):
+    def __init__(self, in_dim, out_dim=None, with_residual=True, with_batchnorm=True,
+                 with_cond=[False], dropout=0, n_extra_channels=0, extra_channel_freq=1,
+                 with_input_proj=0, n_cond_maps=0, kernel_size=3, batchnorm_affine=False,
+                 n_layers=1, condition_method='bn-film', debug_every=float('inf')):
 
+        if out_dim is None:
+            out_dim = in_dim
 
-    if out_dim is None:
-      out_dim = in_dim
-    super(FiLMedResBlock, self).__init__()
-    self.with_residual = with_residual
-    self.with_batchnorm = with_batchnorm
-    self.with_cond = with_cond
-    self.dropout = dropout
-    self.extra_channel_freq = 0 if num_extra_channels == 0 else extra_channel_freq
-    self.with_input_proj = with_input_proj  # Kernel size of input projection
-    self.num_cond_maps = num_cond_maps
-    self.kernel_size = kernel_size
-    self.batchnorm_affine = batchnorm_affine
-    self.num_layers = num_layers
-    self.condition_method = condition_method
-    self.debug_every = debug_every
+        super(FiLMedResBlock, self).__init__()
+        self.with_residual = with_residual
+        self.with_batchnorm = with_batchnorm
+        self.with_cond = with_cond
+        self.dropout = dropout
+        self.extra_channel_freq = 0 if n_extra_channels == 0 else extra_channel_freq
+        self.with_input_proj = with_input_proj  # Kernel size of input projection
+        self.n_cond_maps = n_cond_maps
+        self.kernel_size = kernel_size
+        self.batchnorm_affine = batchnorm_affine
+        self.n_layers = n_layers
+        self.condition_method = condition_method
+        self.debug_every = debug_every
 
-    # if self.with_input_proj % 2 == 0:
-    #   raise(NotImplementedError)
-    if self.kernel_size % 2 == 0:
-      raise(NotImplementedError)
-    if self.num_layers >= 2:
-      raise(NotImplementedError)
+        # if self.with_input_proj % 2 == 0:
+        #   raise(NotImplementedError)
+        if self.kernel_size % 2 == 0:
+            raise(NotImplementedError)
+        if self.n_layers >= 2:
+            raise(NotImplementedError)
 
-    if self.condition_method == 'block-input-film' and self.with_cond[0]:
-      self.film = FiLM()
-    if self.with_input_proj:
-      self.input_proj = nn.Conv2d(in_dim + (num_extra_channels if self.extra_channel_freq >= 1 else 0),
-                                  in_dim, kernel_size=self.with_input_proj, padding=self.with_input_proj // 2)
+        if self.condition_method == 'block-input-film' and self.with_cond[0]:
+            self.film = FiLM()
+        if self.with_input_proj:
+            self.input_proj = nn.Conv2d(in_dim + (n_extra_channels if self.extra_channel_freq >= 1 else 0),
+                                      in_dim, kernel_size=self.with_input_proj, padding=self.with_input_proj // 2)
 
-    num_extra_channels = num_extra_channels if self.extra_channel_freq >= 2 else 0
-    self.conv1 = nn.Conv2d(in_dim + self.num_cond_maps + num_extra_channels,
-                            out_dim, kernel_size=self.kernel_size,
-                            padding=self.kernel_size // 2)
+        n_extra_channels = n_extra_channels if self.extra_channel_freq >= 2 else 0
+        self.conv1 = nn.Conv2d(in_dim + self.n_cond_maps + n_extra_channels,
+                                out_dim, kernel_size=self.kernel_size,
+                                padding=self.kernel_size // 2)
 
-    if self.condition_method == 'conv-film' and self.with_cond[0]:
-      self.film = FiLM()
-    if self.with_batchnorm:
-      self.bn1 = nn.BatchNorm2d(out_dim, affine=((not self.with_cond[0]) or self.batchnorm_affine))
-    if self.condition_method == 'bn-film' and self.with_cond[0]:
-      self.film = FiLM()
-    if dropout > 0:
-      self.drop = nn.Dropout2d(p=self.dropout)
-    if ((self.condition_method == 'relu-film' or self.condition_method == 'block-output-film')
-         and self.with_cond[0]):
-      self.film = FiLM()
+        if self.condition_method == 'conv-film' and self.with_cond[0]:
+            self.film = FiLM()
+        if self.with_batchnorm:
+            self.bn1 = nn.BatchNorm2d(out_dim, affine=((not self.with_cond[0]) or self.batchnorm_affine))
+        if self.condition_method == 'bn-film' and self.with_cond[0]:
+            self.film = FiLM()
+        if ((self.condition_method == 'relu-film' or self.condition_method == 'block-output-film')
+             and self.with_cond[0]):
+            self.film = FiLM()
 
-    init_modules(self.modules())
+        init_modules(self.modules())
 
-  def forward(self, x, gammas=None, betas=None, extra_channels=None, cond_maps=None):
+    def forward(self, x, gammas=None, betas=None, extra_channels=None, cond_maps=None):
+        if self.condition_method == 'block-input-film' and self.with_cond[0]:
+            x = self.film(x, gammas, betas)
 
-    if self.condition_method == 'block-input-film' and self.with_cond[0]:
-      x = self.film(x, gammas, betas)
+        # ResBlock input projection
+        if self.with_input_proj:
+            if extra_channels is not None and self.extra_channel_freq >= 1:
+                x = torch.cat([x, extra_channels], 1)
+            x = F.relu(self.input_proj(x))
+        out = x
 
-    # ResBlock input projection
-    if self.with_input_proj:
-      if extra_channels is not None and self.extra_channel_freq >= 1:
-        x = torch.cat([x, extra_channels], 1)
-      x = F.relu(self.input_proj(x))
-    out = x
+        # ResBlock body
+        if cond_maps is not None:
+            out = torch.cat([out, cond_maps], 1)
+        if extra_channels is not None and self.extra_channel_freq >= 2:
+            out = torch.cat([out, extra_channels], 1)
+        out = self.conv1(out)
+        if self.condition_method == 'conv-film' and self.with_cond[0]:
+            out = self.film(out, gammas, betas)
+        if self.with_batchnorm:
+            out = self.bn1(out)
+        if self.condition_method == 'bn-film' and self.with_cond[0]:
+            out = self.film(out, gammas, betas)
+        if self.dropout > 0:
+            out = F.dropout2d(out, training=self.training)
+        out = F.relu(out)
+        if self.condition_method == 'relu-film' and self.with_cond[0]:
+            out = self.film(out, gammas, betas)
 
-    # ResBlock body
-    if cond_maps is not None:
-      out = torch.cat([out, cond_maps], 1)
-    if extra_channels is not None and self.extra_channel_freq >= 2:
-      out = torch.cat([out, extra_channels], 1)
-    out = self.conv1(out)
-    if self.condition_method == 'conv-film' and self.with_cond[0]:
-      out = self.film(out, gammas, betas)
-    if self.with_batchnorm:
-      out = self.bn1(out)
-    if self.condition_method == 'bn-film' and self.with_cond[0]:
-      out = self.film(out, gammas, betas)
-    if self.dropout > 0:
-      out = self.drop(out)
-    out = F.relu(out)
-    if self.condition_method == 'relu-film' and self.with_cond[0]:
-      out = self.film(out, gammas, betas)
+        # ResBlock remainder
+        if self.with_residual:
+            out = x + out
+        if self.condition_method == 'block-output-film' and self.with_cond[0]:
+            out = self.film(out, gammas, betas)
 
-    # ResBlock remainder
-    if self.with_residual:
-      out = x + out
-    if self.condition_method == 'block-output-film' and self.with_cond[0]:
-      out = self.film(out, gammas, betas)
-
-    return out
+        return out
 
 class VisionFilmGen(nn.Module):
 
-    def __init__(self, num_features_per_block, num_resblock_to_modulate, num_channel_in):
+    def __init__(self, config, n_block_to_modulate, n_channel_in, n_features_per_block):
         super(VisionFilmGen, self).__init__()
 
-        self.num_features_per_block = num_features_per_block
-        self.num_block_to_modulate = num_resblock_to_modulate
-        self.num_features_to_modulate = self.num_block_to_modulate*self.num_features_per_block
-        self.num_channel_in = num_channel_in
+        self.n_block_to_modulate = n_block_to_modulate
+        self.n_channel_in = n_channel_in
+        self.n_features_per_block = n_features_per_block
 
+        self.n_features_to_modulate = self.n_block_to_modulate*self.n_features_per_block
+
+        self.n_intermediate_channel = config['n_intermediate_channel']
+        self.n_final_channel = config['n_final_channel']
+
+        self.n_hidden_gamma = config['n_hidden_gamma']
+        self.n_hidden_beta = config['n_hidden_beta']
+
+        self.dropout = config['dropout']
+
+        # Convolution for objective as an image
         self.layer1 = nn.Sequential(
-            nn.Conv2d(self.num_channel_in, 16, kernel_size=5, padding=2),
-            nn.BatchNorm2d(16),
+            nn.Conv2d(self.n_channel_in, self.n_intermediate_channel, kernel_size=5, padding=2),
+            nn.BatchNorm2d(self.n_intermediate_channel),
             nn.ReLU(),
             nn.MaxPool2d(2))
         self.layer2 = nn.Sequential(
-            nn.Conv2d(16, 32, kernel_size=5, padding=2),
-            nn.BatchNorm2d(32),
+            nn.Conv2d(self.n_intermediate_channel, self.n_final_channel, kernel_size=5, padding=2),
+            nn.BatchNorm2d(self.n_final_channel),
             nn.ReLU(),
             nn.MaxPool2d(2))
 
-        self.fc_gammas = nn.Linear(7 * 7 * 32, self.num_features_to_modulate)
-        self.fc_betas = nn.Linear(7 * 7 * 32, self.num_features_to_modulate)
+        # Add hidden layer (and dropout) before computing gammas and betas
+        size_conv_output = 7 * 7 * self.n_final_channel
+        if self.n_hidden_gamma > 0:
+            hidden_layer_gamma = nn.Linear(size_conv_output, self.n_hidden_gamma)
+            dropout_gamma = nn.Dropout(self.dropout)
+            self.hidden_layer_gamma = nn.Sequential(hidden_layer_gamma, dropout_gamma)
+        else:
+            self.hidden_layer_gamma = lambda x:x # Identity
+            self.n_hidden_gamma = size_conv_output
+
+        if self.n_hidden_beta > 0:
+            hidden_layer_beta = nn.Linear(size_conv_output, self.n_hidden_beta)
+            dropout_beta = nn.Dropout(self.dropout)
+            self.hidden_layer_beta = nn.Sequential(hidden_layer_beta, dropout_beta)
+
+        else:
+            self.hidden_layer_beta = lambda x:x # Identity
+            self.n_hidden_beta = size_conv_output
+
+        # compute gammas and betas
+        self.fc_gammas = nn.Linear(self.n_hidden_gamma, self.n_features_to_modulate)
+        self.fc_betas = nn.Linear(self.n_hidden_beta, self.n_features_to_modulate)
 
     def forward(self, x):
         out = self.layer1(x)
         out = self.layer2(out)
         out = out.view(out.size(0), -1)
 
-        gammas = self.fc_gammas(out)
-        betas = self.fc_betas(out)
+        gammas = self.hidden_layer_gamma(out)
+        betas = self.hidden_layer_beta(out)
+
+        gammas = self.fc_gammas(gammas)
+        betas = self.fc_betas(betas)
         return gammas, betas
 
 
@@ -153,51 +183,53 @@ class FilmedNet(nn.Module):
         super(FilmedNet, self).__init__()
 
         self.lr = config["learning_rate"]
-        self.gamma = config["gamma"]
+        self.discount_factor = config["discount_factor"]
         self.out_channel = config["head_channel"]
 
-
         self.n_resblocks = config["n_resblock"]
-        self.n_hidden = config["n_hidden"]
+        self.resblock_dropout = config["resblock_dropout"]
+        self.fc_dropout = config["fc_dropout"]
+
+        self.n_hidden = config['n_hidden']
 
         self.use_film = config["use_film"]
         self.is_multi_objective = is_multi_objective
 
         if self.is_multi_objective and not self.use_film:
-            self.num_channel_per_state = state_dim['concatenated'][0]
+            self.n_channel_per_state = state_dim['concatenated'][0]
         else:
-            self.num_channel_per_state = state_dim['env_state'][0]
-        self.num_pixel = state_dim['env_state'][1] * state_dim['env_state'][2]
+            self.n_channel_per_state = state_dim['env_state'][0]
 
-        self.num_channel_per_objective = state_dim['objective'][0]
+        self.n_pixel = state_dim['env_state'][1] * state_dim['env_state'][2]
+
+        self.n_channel_per_objective = state_dim['objective'][0]
 
         if is_multi_objective and self.use_film:
-            self.film_gen = VisionFilmGen(num_features_per_block=self.num_channel_per_state,
-                                          num_resblock_to_modulate=self.n_resblocks,
-                                          num_channel_in=self.num_channel_per_objective)
+            self.film_gen = VisionFilmGen(config=config['film_gen_params'],
+                                          n_block_to_modulate=self.n_resblocks,
+                                          n_channel_in=self.n_channel_per_objective,
+                                          n_features_per_block=self.n_channel_per_state)
 
         self.n_actions = n_actions
 
         self.resblocks = nn.ModuleList()
-        for num_resblock in range(self.n_resblocks):
-            current_resblock = FiLMedResBlock(in_dim=self.num_channel_per_state,
+        for n_resblock in range(self.n_resblocks):
+            current_resblock = FiLMedResBlock(in_dim=self.n_channel_per_state,
                                               with_residual=True,
                                               with_batchnorm=False,
-                                              with_cond=[True])
+                                              with_cond=[True],
+                                              dropout=self.resblock_dropout)
 
             self.resblocks.append(current_resblock)
 
 
         # head
-        self.head_conv = nn.Conv2d(in_channels=self.num_channel_per_state,
+        self.head_conv = nn.Conv2d(in_channels=self.n_channel_per_state,
                                    out_channels=self.out_channel,
                                    kernel_size=1)
 
-        # Todo : attention head ?
-
-        self.fc1 = nn.Linear(in_features=self.num_pixel * self.out_channel, out_features=self.n_hidden)
+        self.fc1 = nn.Linear(in_features=self.n_pixel * self.out_channel, out_features=self.n_hidden)
         self.fc2 = nn.Linear(in_features=self.n_hidden, out_features=self.n_actions)
-
 
         if config['optimizer'] == 'RMSprop':
             self.optimizer = optim.RMSprop(self.parameters(), lr=self.lr)
@@ -221,17 +253,18 @@ class FilmedNet(nn.Module):
 
             # Gammas = all ones
             # Betas = all zeros
-            gammas = Variable(torch.ones(batch_size, self.num_channel_per_state * self.n_resblocks).type(FloatTensor))
+            gammas = Variable(torch.ones(batch_size, self.n_channel_per_state * self.n_resblocks).type(FloatTensor))
             betas = Variable(torch.zeros_like(gammas.data).type(FloatTensor))
 
         for i,resblock in enumerate(self.resblocks):
-            gamma_beta_id = slice(self.num_channel_per_state * i, self.num_channel_per_state * (i + 1))
+            gamma_beta_id = slice(self.n_channel_per_state * i, self.n_channel_per_state * (i + 1))
             x = resblock.forward(x, gammas=gammas[:, gamma_beta_id], betas=betas[:, gamma_beta_id])
 
         x = self.head_conv(x)
         x = x.view(x.shape[0], -1)
 
         x = F.relu(self.fc1(x))
+        x = F.dropout(x, p=self.fc_dropout, training=self.training)
         x = self.fc2(x)
         return x
 

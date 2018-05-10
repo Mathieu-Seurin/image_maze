@@ -7,6 +7,11 @@ import logging
 from logging.handlers import RotatingFileHandler
 
 def override_config_recurs(config, config_extension):
+    try:
+        config_extension['name'] = config['name']+'_'+config_extension['name']
+    except KeyError:
+        pass
+
     for key, value in config_extension.items():
         if type(value) is dict:
             config[key] = override_config_recurs(config[key], config_extension[key])
@@ -15,25 +20,49 @@ def override_config_recurs(config, config_extension):
 
     return config
 
-def load_config_and_logger(config_file, exp_dir, args=None, extension_file=None):
+def load_single_config(config_file):
+    with open(config_file, 'rb') as f_config:
+        config_str = f_config.read()
+        config = json.loads(config_str.decode('utf-8'))
+    return config
 
-    if extension_file is None:
-        config, exp_identifier = load_config(config_file=config_file)
-    else:
-        config, exp_identifier = load_config_extended(config_file=config_file,
-                                                      extension_file=extension_file)
+def load_config_and_logger(env_config_file, model_config_file, exp_dir,
+                           args=None,
+                           env_ext_file=None,
+                           model_ext_file=None):
 
-    save_path = '{}/{{}}'.format(os.path.join(exp_dir, exp_identifier))
+    # Load env file and model
+    env_config = load_single_config(env_config_file)
+    model_config = load_single_config(model_config_file)
+
+    # Override env and model files if specified
+    if env_ext_file is not None:
+        env_ext_config = load_single_config(env_ext_file)
+        env_config = override_config_recurs(env_config, env_ext_config)
+    if model_ext_file is not None:
+        model_ext_config = load_single_config(model_ext_file)
+        model_config = override_config_recurs(model_config, model_ext_config)
+
+    # Merge env and model config into one dict
+    env_config['env_name'] = env_config['name']
+    env_config.update(model_config)
+    config = env_config
+
+    # Compute unique identifier based on those configs
+    config_byte = json.dumps(config).encode()
+    exp_identifier = hashlib.md5(config_byte).hexdigest()
+
+    save_path = '{}/{{}}'.format(os.path.join(exp_dir, config['env_name'], exp_identifier))
     if not os.path.isdir(save_path.format('')):
         os.makedirs(save_path.format(''))
 
     # Write which config files were used, in case the names in config are not set
     with open(save_path.format("config_files.txt"), "w") as f:
-        f.write(config_file)
-        if extension_file:
-            f.write(config_file)
+        f.write(env_config_file)
+        if env_ext_file:
+            f.write(env_config_file)
 
-    # create logger
+    # Create logger
     logger = create_logger(save_path.format('train.log'))
     logger.info("Config Hash {}".format(exp_identifier))
     logger.info("Config name : {}".format(config["name"]))
@@ -47,40 +76,9 @@ def load_config_and_logger(config_file, exp_dir, args=None, extension_file=None)
     set_seed(config)
 
     # copy config file
-    shutil.copy(config_file, save_path.format('config.json'))
+    shutil.copy(env_config_file, save_path.format('config.json'))
 
     return config, exp_identifier, save_path
-
-
-def load_config(config_file):
-    with open(config_file, 'rb') as f_config:
-        config_str = f_config.read()
-        exp_identifier = hashlib.md5(config_str).hexdigest()
-        config = json.loads(config_str.decode('utf-8'))
-
-    return config, exp_identifier
-
-
-def load_config_extended(config_file, extension_file):
-
-    # Load config file
-    with open(config_file, 'rb') as f_config:
-        config_str = f_config.read()
-        config = json.loads(config_str.decode('utf-8'))
-
-    # And its extension to override parameters
-    with open(extension_file, 'rb') as f_extension:
-        config_str_extension = f_extension.read()
-        config_extension = json.loads(config_str_extension.decode('utf-8'))
-
-    #override Base Config with extension parameters
-    config = override_config_recurs(config=config,
-                                    config_extension=config_extension)
-
-    config_byte = json.dumps(config).encode()
-    exp_identifier = hashlib.md5(config_byte).hexdigest()
-
-    return config, exp_identifier
 
 
 def create_logger(save_path):

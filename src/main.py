@@ -16,18 +16,24 @@ from image_utils import make_video, make_eval_plot
 parser = argparse.ArgumentParser('Log Parser arguments!')
 
 parser.add_argument("-exp_dir", type=str, default="out", help="Directory with one expe")
-parser.add_argument("-config", type=str, help="Which file correspond to the experiment you want to launch ?")
-parser.add_argument("-extension", type=str, help="Do you want to override parameters in the config file ?")
+parser.add_argument("-env_config", type=str, help="Which file correspond to the experiment you want to launch ?")
+parser.add_argument("-model_config", type=str, help="Which file correspond to the experiment you want to launch ?")
+parser.add_argument("-env_extension", type=str, help="Do you want to override parameters in the env file ?")
+parser.add_argument("-model_extension", type=str, help="Do you want to override parameters in the model file ?")
 parser.add_argument("-display", type=str, help="Display images or not")
 
 args = parser.parse_args()
 # Load_config also creates logger inside (INFO to stdout, INFO to train.log)
-config, exp_identifier, save_path = load_config_and_logger(config_file=args.config,
-                    exp_dir=args.exp_dir, args=args, extension_file=args.extension)
+config, exp_identifier, save_path = load_config_and_logger(env_config_file=args.env_config,
+                                                           model_config_file=args.model_config,
+                                                           env_ext_file=args.env_extension,
+                                                           model_ext_file=args.model_extension,
+                                                           args=args,
+                                                           exp_dir=args.exp_dir
+                                                           )
 
 logging = logging.getLogger()
 set_seed(config)
-
 
 env = ImageGridWorld(config=config["env_type"], show=False)
 env.reset()
@@ -97,6 +103,10 @@ def train(agent, env):
 
 
 def test(agent, env, config, num_test):
+
+    # Setting the model into test mode (for dropout for example)
+    agent.eval()
+
     lengths, rewards = [], []
     obj_type = config['env_type']['objective']['type']
     number_epochs_to_store = config['io']['num_epochs_to_store']
@@ -145,6 +155,9 @@ def test(agent, env, config, num_test):
 
             if epoch < number_epochs_to_store:
                 make_video(video, save_path.format('test_{}_{}_{}'.format(num_test, num_objective, epoch)))
+
+    # Setting the model back into train mode (for dropout for example)
+    agent.train()
 
     return np.mean(rewards), np.mean(lengths)
 

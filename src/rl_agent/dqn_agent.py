@@ -44,7 +44,7 @@ class DQNAgent(object):
             self.ref_model.cuda()
         self.n_action = n_action
         self.memory = ReplayMemory(16384)
-        self.gamma = self.forward_model.gamma
+        self.gamma = self.forward_model.discount_factor
         self.tau = config['tau']
 
     def apply_config(self, config):
@@ -53,6 +53,14 @@ class DQNAgent(object):
     def callback(self, epoch):
         if epoch % 10 == 0:
             self.ref_model.load_state_dict(self.forward_model.state_dict())
+
+    def train(self):
+        self.forward_model.train()
+        self.ref_model.train()
+
+    def eval(self):
+        self.forward_model.eval()
+        self.ref_model.eval()
 
     def forward(self, state, epsilon=0.1):
 
