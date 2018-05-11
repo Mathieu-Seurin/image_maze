@@ -21,6 +21,7 @@ parser.add_argument("-exp_dir", type=str, default="out", help="Directory with on
 parser.add_argument("-config", type=str, help="Which file correspond to the experiment you want to launch ?")
 parser.add_argument("-extension", type=str, help="Do you want to override parameters in the config file ?")
 parser.add_argument("-display", type=str, help="Display images or not")
+parser.add_argument("-seed", type=int, default=0, help="Manually set seed when launching exp")
 
 args = parser.parse_args()
 # Load_config also creates logger inside (INFO to stdout, INFO to train.log)
@@ -28,16 +29,17 @@ config, exp_identifier, save_path = load_config_and_logger(config_file=args.conf
                     exp_dir=args.exp_dir, args=args, extension_file=args.extension)
 
 logging = logging.getLogger()
-set_seed(config)
+set_seed(config, args)
+
 
 # env = ImageGridWorld(config=config["env_type"], show=False)
-
 env = ImageFmapGridWorld(config=config["env_type"])
+
 
 if config["agent_type"] == 'random':
     rl_agent = AbstractAgent(config, env.action_space())
-elif config["agent_type"] == 'dqn':
-    rl_agent = DQNAgent(config['dqn_params'], env.action_space())
+elif 'dqn' in config["agent_type"]:
+    rl_agent = DQNAgent(config, env.action_space(), env.state_objective_dim(), env.is_multi_objective)
 elif config["agent_type"] == 'reinforce':
     rl_agent = ReinforceAgent(config['reinforce_params'], env.action_space())
 else:
@@ -53,7 +55,6 @@ test_every = config["train_params"]["test_every"]
 n_epochs_test = config["train_params"]["n_epochs_test"]
 
 verbosity = config["io"]["verbosity"]
-gif_verbosity = config["io"]["gif_verbosity"]
 
 
 def train(agent, env):
@@ -65,20 +66,28 @@ def train(agent, env):
         eps_decay = n_epochs / 4.
         eps_range = [epsilon_init * np.exp(-1. * i / eps_decay) for i in range(n_epochs)]
 
+    logging.info(" ")
+    logging.info("Begin Training")
+    logging.info("===============")
+
     for epoch in range(n_epochs):
         state = env.reset(show=False)
         done = False
-        video = []
         time_out = 20
-        time = 0
+        num_step = 0
 
-        while not done and time < time_out:
-            time += 1
+        if epoch % test_every == 0:
+            reward, length = test(agent, env, config, epoch)
+            logging.info("Epoch {} test : averaged reward {:.2f}, average length {:.2f}".format(epoch, reward, length))
 
-            if gif_verbosity != 0:
-                if epoch % gif_verbosity == 0 and epoch != 0:
-                    video.append(env.render(show=False))
+            with open(save_path.format('train_lengths'), 'a+') as f:
+                f.write("{} {}\n".format(epoch, length))
+            with open(save_path.format('train_rewards'), 'a+') as f:
+                    f.write("{} {}\n".format(epoch, reward))
+            make_eval_plot(save_path.format('train_lengths'), save_path.format('eval_curve.png'))
 
+        while not done and num_step < time_out:
+            num_step += 1
             action = agent.forward(state, eps_range[epoch])
             next_state, reward, done, _ = env.step(action)
             loss = agent.optimize(state, action, next_state, reward, batch_size=batch_size)
@@ -86,23 +95,13 @@ def train(agent, env):
 
         agent.callback(epoch)
 
-        if epoch % test_every == 0:
-            reward, length = test(agent, env)
-            logging.info("Epoch {} test : averaged reward {}, average length {}".format(epoch, reward, length))
-            with open(save_path.format('train_lengths'), 'a+') as f:
-                f.write("{} {}\n".format(epoch, length))
-            with open(save_path.format('train_rewards'), 'a+') as f:
-                    f.write("{} {}\n".format(epoch, reward))
-            make_eval_plot(save_path.format('train_lengths'), save_path.format('eval_curve.png'))
 
 
-        if gif_verbosity != 0:
-            if epoch % gif_verbosity == 0 and epoch != 0:
-                make_video(video, save_path.format('train_' + str(epoch)))
 
-def test(agent, env):
+def test(agent, env, config, num_test):
     lengths, rewards = [], []
     obj_type = config['env_type']['objective']['type']
+    number_epochs_to_store = config['io']['num_epochs_to_store']
 
 
     if obj_type == 'fixed':
@@ -113,26 +112,44 @@ def test(agent, env):
     else:
         assert False, 'Objective {} not supported'.format(obj_type)
 
-    for objective in test_objectives:
+    for num_objective, objective in enumerate(test_objectives):
         logging.debug('Switching objective to {}'.format(objective))
         env.reward_position = objective
 
         for epoch in range(n_epochs_test):
+
+            # WARNING FREEZE COUNT SO THE MAZE DOESN'T CHANGE
+            env.count_ep_in_this_maze = 0
+            env.count_current_objective = 0
+
+
             state = env.reset(show=False)
+
             done = False
             time_out = 20
-            time = 0
+            num_step = 0
             epoch_rewards = []
+            video = []
 
-            while not done and time < time_out:
-                time += 1
+            if epoch < number_epochs_to_store:
+                video.append(env.render(show=False))
+
+            while not done and num_step < time_out:
+                num_step += 1
                 action = agent.forward(state, 0.)
                 next_state, reward, done, _ = env.step(action)
+
+                if epoch < number_epochs_to_store:
+                    video.append(env.render(show=False))
+
                 epoch_rewards += [reward]
                 state = next_state
 
             rewards.append(np.sum(epoch_rewards))
             lengths.append(len(epoch_rewards))
+
+            if epoch < number_epochs_to_store:
+                make_video(video, save_path.format('test_{}_{}_{}'.format(num_test, num_objective, epoch)))
 
     return np.mean(rewards), np.mean(lengths)
 

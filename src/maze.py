@@ -23,7 +23,8 @@ class ImageGridWorld(object):
         self.n_row = config["n_row"]
         self.n_col = config["n_col"]
         self.position = []
-
+        self.n_objectives = 1 # Default
+        self.is_multi_objective = False #Default
 
         (self.digits_im, self.digits_labels), (_, _) = mnist.load_data()
         (self.fashion_im, self.fashion_labels), (_, _) = fashion_mnist.load_data()
@@ -56,39 +57,36 @@ class ImageGridWorld(object):
         # ==================== Reward Type =======================
         # =========================================================
         # reward is only located at one place : fixed
-        if config["objective"]["type"] == "fixed":
-            self.reward_position = (2, 2)
-
-            # Identity : Do nothing
-            self.get_objective_state = lambda *args: None
-            self.post_process = lambda *args: None
-
+        objective_type = config["objective"]["type"]
+        if  objective_type == "image":
+            self.get_objective_state = self._get_image_objective
+        elif  objective_type == "image_no_bkg":
+            self.get_objective_state = self._get_image_objective_no_bkg
+        elif  objective_type == "random_image":
+            self.get_objective_state = self._get_random_image_objective
+        elif objective_type == "text":
+            self.get_objective_state = self._get_text_objective
         else:
-            objective_type = config["objective"]["type"]
-            if  objective_type == "image":
-                self.get_objective_state = self._get_image_objective
-            elif  objective_type == "image_no_bkg":
-                self.get_objective_state = self._get_image_objective_no_bkg
-            elif  objective_type == "random_image":
-                self.get_objective_state = self._get_random_image_objective
-            elif objective_type == "text":
-                self.get_objective_state = self._get_text_objective
-            else:
-                raise Exception("objective type must be 'fixed', 'text' or 'image', not {}".format(objective_type))
+            raise Exception("objective type must be 'fixed', 'text' or 'image', not {}".format(objective_type))
 
-            # Changing the number of state you're alternating with, and the speed at which you change objective
-            self.all_objectives = list(itertools.product(range(self.n_row), range(self.n_col)))
-            # self.all_objectives = [(1,0),(3,1),(4,3),(1,3)]
-            objective_shuffler = random.Random(777)
-            objective_shuffler.shuffle(self.all_objectives)
-            # Add seed for reproducibility
-            self.n_objectives = config["objective"]["curriculum"]["n_objective"]
-            self.objective_changing_every = config["objective"]["curriculum"]["change_every"]
+        # Changing the number of state you're alternating with, and the speed at which you change objective
+        self.all_objectives = list(itertools.product(range(self.n_row), range(self.n_col)))
+        # self.all_objectives = [(1,0),(3,1),(4,3),(1,3)]
 
-            self.objectives = self.all_objectives[:self.n_objectives]
-            self.reward_position = self.objectives[np.random.randint(len(self.objectives))]
+        random.shuffle(self.all_objectives)
+        # Add seed for reproducibility
+        self.n_objectives = config["objective"]["curriculum"]["n_objective"]
+        self.is_multi_objective = self.n_objectives > 1
 
-            self.post_process = self._change_objective
+        if not self.is_multi_objective:
+            self.all_objectives = [(2,2)]
+
+        self.objective_changing_every = config["objective"]["curriculum"]["change_every"]
+
+        self.objectives = self.all_objectives[:self.n_objectives]
+        self.reward_position = self.objectives[np.random.randint(len(self.objectives))]
+
+        self.post_process = self._change_objective
 
         # ==================== Maze Type ==========================
         # =========================================================
@@ -140,10 +138,11 @@ class ImageGridWorld(object):
 
         position_on_reward = True
         while position_on_reward:
-            y = np.random.randint(self.n_row-1)
-            x = np.random.randint(self.n_col-1)
+            y = np.random.randint(self.n_col)
+            x = np.random.randint(self.n_row)
             self.position = (x, y)
             position_on_reward = bool(self.get_reward())
+
         return self.get_state()
 
     def step(self, action):
@@ -352,6 +351,16 @@ class ImageGridWorld(object):
 
     def action_space(self):
         return 4
+    def state_objective_dim(self):
+
+        state = self.get_state()
+        state_objective_dim_dict = dict()
+        state_objective_dim_dict['env_state'] = state['env_state'].shape
+        state_objective_dim_dict['objective'] = state['objective'].shape
+        concatened_dim = state_objective_dim_dict['env_state'][0] + state_objective_dim_dict['objective'][0]
+        state_objective_dim_dict['concatenated'] = (concatened_dim, state_objective_dim_dict['env_state'][1], state_objective_dim_dict['env_state'][2])
+
+        return state_objective_dim_dict
 
 
 if __name__ == "__main__":

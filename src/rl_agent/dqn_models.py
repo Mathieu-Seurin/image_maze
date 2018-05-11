@@ -14,44 +14,48 @@ Tensor = FloatTensor
 
 class DQN(nn.Module):
 
-    def __init__(self, config, n_out):
+    def __init__(self, config, n_action, state_dim, is_multi_objective):
         super(DQN, self).__init__()
-        self.output_size = n_out
+        self.output_size = n_action
+        self.n_channels_total = state_dim['concatenated'][0]
+        self.input_resolution = list(state_dim['concatenated'][1:])
 
         conv_layers = nn.ModuleList()
         dense_layers = nn.ModuleList()
 
-        self.input_resolution = config['input_resolution']
-        self.n_channels = config['n_channels']
         self.conv_shapes = config['conv_shapes']
         self.dense_shapes = config['dense_shapes'] + [self.output_size]
-        self.use_batch_norm = config['use_batch_norm'] == 'True'
+        self.use_batch_norm = config['use_batch_norm']
+
         self.lr = config['learning_rate']
         self.gamma = config['gamma']
+
+        # Todo use this instead of config["concatenate_input"]
+        self.is_multi_objective = is_multi_objective
 
         # At least 1 conv, then dense head
         for idx, shape in enumerate(self.conv_shapes):
             if idx == 0:
-                conv_layers.append(nn.Conv2d(self.n_channels, shape, kernel_size=3, stride=2))
+                conv_layers.append(nn.Conv2d(self.n_channels_total, shape, kernel_size=3, stride=2))
             else:
-                conv_layers.append(nn.Conv2d(tmp, shape, kernel_size=5, stride=2))
+                conv_layers.append(nn.Conv2d(intermediate_channel, shape, kernel_size=5, stride=2))
             conv_layers.append(nn.ReLU())
             if self.use_batch_norm:
                 conv_layers.append(nn.BatchNorm2d(shape))
-            tmp = shape
+            intermediate_channel = shape
         self.conv_layers = conv_layers
 
         # Infer shape after flattening
-        tmp = self._get_conv_output_size([self.n_channels,] + self.input_resolution)
+        shape_after_flatten = self._get_conv_output_size([self.n_channels_total, ] + self.input_resolution)
 
         for idx, shape in enumerate(self.dense_shapes):
-            dense_layers.append(nn.Linear(tmp, shape))
+            dense_layers.append(nn.Linear(shape_after_flatten, shape))
             if idx < len(self.dense_shapes)-1:
                 dense_layers.append(nn.ReLU())
                 if self.use_batch_norm:
                     logging.info('BatchNorm in dense head gives issues')
                     # dense_layers.append(nn.BatchNorm1d(shape))
-            tmp = shape
+            shape_after_flatten = shape
         self.dense_layers = dense_layers
 
         logging.info('Model summary :')
@@ -86,6 +90,8 @@ class DQN(nn.Module):
         return x
 
     def forward(self, x):
+
+        x = torch.cat((x['env_state'], x['objective']), dim=1)
         x = self._forward_conv(x)
         x = x.view(x.size(0), -1)
         return self._forward_dense(x)
@@ -104,9 +110,9 @@ class SoftmaxDQN(nn.Module):
         self.n_channels = config['n_channels']
         self.conv_shapes = config['conv_shapes']
         self.dense_shapes = config['dense_shapes'] + [self.output_size]
-        self.use_batch_norm = config['use_batch_norm'] == 'True'
+        self.use_batch_norm = config['use_batch_norm']
         self.lr = config['learning_rate']
-        self.use_first_block = config['use_first_block'] == 'True'
+        self.use_first_block = config['use_first_block']
 
         prev_shape = self.n_channels
 

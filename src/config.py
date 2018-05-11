@@ -27,6 +27,12 @@ def load_config_and_logger(config_file, exp_dir, args=None, extension_file=None)
     if not os.path.isdir(save_path.format('')):
         os.makedirs(save_path.format(''))
 
+    # Write which config files were used, in case the names in config are not set
+    with open(save_path.format("config_files.txt"), "w") as f:
+        f.write(config_file)
+        if extension_file:
+            f.write(config_file)
+
     # create logger
     logger = create_logger(save_path.format('train.log'))
     logger.info("Config Hash {}".format(exp_identifier))
@@ -94,13 +100,19 @@ def create_logger(save_path):
 
     return logger
 
-def set_seed(config):
+def set_seed(config, parsed_args=None):
     import numpy as np
     import torch
-    seed = config["seed"]
+    import random
+    if parsed_args is None:
+        seed = config["seed"]
+    else:
+        print('Using seed {} from parser argument'.format(parsed_args.seed))
+        seed = parsed_args.seed
     if seed > -1:
         np.random.seed(seed)
         torch.manual_seed(seed)
+        random.seed(seed)
 
 def write_seed_extensions(seed_range, out_name='../config/seed_extensions/'):
     for seed in seed_range:

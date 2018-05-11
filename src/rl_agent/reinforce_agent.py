@@ -30,7 +30,7 @@ class ReinforceAgent(object):
             self.forward_model.cuda()
         self.n_action = n_action
         self.gamma = config['gamma']
-        self.update_every = config['reinforce_update_every']
+        self.update_every = config['update_every']
         self.concatenate_objective = config['concatenate_objective']
         self.last_loss = np.nan
         self.rewards_epoch = []
@@ -101,7 +101,7 @@ class ReinforceAgent(object):
     def forward(self, state, epsilon=0.1):
         # Epsilon has no influence, keep it for compatibility
         state_loc = state['env_state']
-        if self.concatenate_objective == 'True':
+        if self.concatenate_objective:
             state_loc = torch.cat((state_loc.cuda(), state['objective'].cuda()))
         state_loc = state_loc.unsqueeze(0)
         probs = self.forward_model(Variable(state_loc, volatile=True))

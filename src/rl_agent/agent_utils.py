@@ -6,7 +6,7 @@ import random
 import logging
 
 
-Transition = namedtuple('Transition', ('state', 'action', 'next_state', 'reward'))
+Transition = namedtuple('Transition', ('state', 'action', 'next_state', 'reward', 'objective'))
 
 class Flatten(nn.Module):
   def forward(self, x):
@@ -50,5 +50,18 @@ def check_params_changed(dict1, dict2):
         tmp2 = dict2[key]
         if np.max(np.abs(tmp1 - tmp2))==0:
             logging.warning('No change in params {}'.format(key))
+
+def compute_slow_params_update(slow_params, fast_params, tau):
+
+    slow_params_dict = slow_params.state_dict()
+    fast_params_dict = fast_params.state_dict()
+
+    for module_key in slow_params_dict.keys() :
+        slow_params_dict[module_key] += tau*(fast_params_dict[module_key] - slow_params_dict[module_key])
+
+    return slow_params_dict
+
+
+
 
 

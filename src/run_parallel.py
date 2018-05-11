@@ -4,20 +4,19 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 
-# write_seed_extensions(range(10))
 
-def repeat_exp_parallel(exp_dir='out/test_parallel'):
-    # Use 5 seed extensions to run 5 exps in parallel with results in subfolders
 
-    seed_extensions = ['../config/seed_extensions/{}'.format(i) for i in range(5)]
-    commands = ['python main.py -config {}/cfg.json -extension {} -exp_dir {}'.format(
-                exp_dir, ext, exp_dir) for ext in seed_extensions]
+def repeat_exp_parallel(base_cfg='', agent_cfg='', exp_dir='out', n_jobs=5):
+    # Use 5 seeds to run 5 exps in parallel with results in subfolders
+    exp_dir = '{}/{}/{}'.format(exp_dir, base_cfg.split('/')[-1], agent_cfg.split('/')[-1])
 
+    commands = ['python main.py -config {}.json -extension {}.json -exp_dir {}/{} -seed {}'.format(
+                base_cfg, agent_cfg, exp_dir, seed, seed) for seed in range(n_jobs)]
     processes = [Popen(cmd, shell=True) for cmd in commands]
-
     for p in processes:
         p.wait()
     print('Done running experiments')
+    return exp_dir
 
 def make_smoothed_training_curve(exp_dir='out/test_parallel'):
     x_, steps = [], []
@@ -39,15 +38,15 @@ def make_smoothed_training_curve(exp_dir='out/test_parallel'):
     plt.savefig(exp_dir + '/smoothed_training_curve.png')
     plt.close()
 
-# dir_ = 'out/test_reinforce'
-# repeat_exp_parallel('../config/base_reinforce.json', out_dir=dir_)
 
-# For now, need to manually put config file at root folder of parallel exp
-# before launching it
 
-for n_obj in [20]:
-    for preprocessing in ['pretrained']:#, 'raw']:
-        # dir_ = 'out/changing_obj_fixed_maze/{}_obj_every_10/reinforce/{}'.format(n_obj, preprocessing)
-        dir_ = 'out/changing_obj_changing_maze/{}_obj_every_10/reinforce/{}'.format(n_obj, preprocessing)
-        repeat_exp_parallel(exp_dir=dir_)
-        make_smoothed_training_curve(dir_)
+
+for n_obj in [3]:
+    for preprocessing in ['preproc']:
+        base_cfg = '../config/new_env/fix_maze_change_obj_{}_{}'.format(n_obj, preprocessing)
+        for agent in ['baseline_dqn_filmed']:
+            if preprocessing == 'preproc':
+                agent = agent + '_preproc'
+            agent_cfg = '../config/{}'.format(agent)
+            dir_ = repeat_exp_parallel(base_cfg=base_cfg, agent_cfg=agent_cfg, exp_dir='out', n_jobs=5)
+            make_smoothed_training_curve(dir_)
