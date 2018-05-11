@@ -8,25 +8,26 @@
     "state_type" : "surrounding",
     "change_maze" : 0,
     "maze_type" : "sequential",
+    "reward_type" : "no_penalty",
     "objective" : {
       "type" : "image",
       "curriculum":
       {
         "n_objective" : 2,
-        "change_every" : 100
+        "change_every" : 1
       }
 
     }
   },
   "train_params": {
     "epsilon_schedule": ["exp", 0.95],
-    "batch_size": 64,
     "n_epochs" : 2000,
     "test_every": 100,
-    "n_epochs_test": 20
+    "n_epochs_test": 7
   },
+
   "io": {
     "verbosity": 1,
-    "num_epochs_to_store": 10
+    "num_epochs_to_store": 2
   }
 }

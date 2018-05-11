@@ -50,7 +50,6 @@ else:
 
 
 n_epochs = config["train_params"]["n_epochs"]
-batch_size = config["train_params"]["batch_size"]
 epsilon_schedule = config["train_params"]["epsilon_schedule"][0]
 epsilon_init = config["train_params"]["epsilon_schedule"][1]
 test_every = config["train_params"]["test_every"]
@@ -94,7 +93,7 @@ def train(agent, env):
 
             action = agent.forward(state, eps_range[epoch])
             next_state, reward, done, _ = env.step(action)
-            loss = agent.optimize(state, action, next_state, reward, batch_size=batch_size)
+            loss = agent.optimize(state, action, next_state, reward)
             state = next_state
 
         agent.callback(epoch)
@@ -111,7 +110,7 @@ def test(agent, env, config, num_test):
     obj_type = config['env_type']['objective']['type']
     number_epochs_to_store = config['io']['num_epochs_to_store']
 
-    if obj_type in ['image', 'image_no_bkg', 'random_image']:
+    if obj_type in ['image', 'image_no_bkg', 'same_class']:
         # For now, test only on previously seen examples
         test_objectives = env.objectives
     else:

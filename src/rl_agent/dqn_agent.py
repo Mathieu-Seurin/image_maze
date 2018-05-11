@@ -44,8 +44,9 @@ class DQNAgent(object):
             self.ref_model.cuda()
         self.n_action = n_action
         self.memory = ReplayMemory(16384)
-        self.gamma = self.forward_model.discount_factor
+        self.discount_factor = self.forward_model.discount_factor
         self.tau = config['tau']
+        self.batch_size = config["batch_size"]
 
     def apply_config(self, config):
         pass
@@ -78,7 +79,8 @@ class DQNAgent(object):
 
         return idx
 
-    def optimize(self, state, action, next_state, reward, batch_size=16):
+    def optimize(self, state, action, next_state, reward):
+
         # state is {"env_state" : img, "objective": img}
         state_loc = FloatTensor(state['env_state'])
         next_state_loc = FloatTensor(next_state['env_state'])
@@ -96,8 +98,10 @@ class DQNAgent(object):
 
         self.memory.push(state, action, next_state, reward, objective)
 
-        if len(self.memory.memory) < batch_size:
+        if len(self.memory.memory) < self.batch_size:
             batch_size = len(self.memory.memory)
+        else:
+            batch_size = self.batch_size
 
         transitions = self.memory.sample(batch_size)
         batch = Transition(*zip(*transitions))
@@ -133,7 +137,7 @@ class DQNAgent(object):
         next_state_values = Variable(torch.zeros(batch_size).type(Tensor))
         next_state_values[non_final_mask] = self.ref_model(non_final_next_states_obj).max(1)[0]
 
-        expected_state_action_values = (next_state_values * self.gamma) + reward_batch
+        expected_state_action_values = (next_state_values * self.discount_factor) + reward_batch
 
         loss = F.mse_loss(state_action_values, expected_state_action_values)
 

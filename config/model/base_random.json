@@ -1,0 +1,5 @@
+{
+  "name": "basic_config",
+  "agent_type": "random",
+  "seed": 42
+}

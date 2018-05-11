@@ -1,0 +1,22 @@
+{
+  "name": "basic_config",
+  "agent_type":"resnet_dqn",
+
+  "resnet_dqn_params":{
+    "learning_rate" : 1e-5,
+    "batch_size" : 64,
+    "optimizer": "RMSprop",
+    "discount_factor": 0.99,
+    "resblock_dropout": 0,
+    "head_kernel" : 1,
+    "head_pool_kernel" : 2,
+    "fc_dropout" : 0,
+    "n_modulated_block": 0,
+    "n_regular_block": 2,
+    "n_hidden" : 200,
+    "head_channel" : 6,
+    "use_film" : false,
+    "tau" : 0.0001
+  }
+
+}

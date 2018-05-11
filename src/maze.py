@@ -19,7 +19,6 @@ class ImageGridWorld(object):
         self.mean_per_channel = np.array([0.5450519,   0.88200397,  0.54505189])
         self.std_per_channel = np.array([0.35243599, 0.23492979,  0.33889725])
 
-
         self.n_row = config["n_row"]
         self.n_col = config["n_col"]
         self.position = []
@@ -58,11 +57,11 @@ class ImageGridWorld(object):
         # =========================================================
         # reward is only located at one place : fixed
         objective_type = config["objective"]["type"]
-        if  objective_type == "image":
+        if objective_type == "image":
             self.get_objective_state = self._get_image_objective
-        elif  objective_type == "image_no_bkg":
+        elif objective_type == "image_no_bkg":
             self.get_objective_state = self._get_image_objective_no_bkg
-        elif  objective_type == "random_image":
+        elif objective_type == "same_class":
             self.get_objective_state = self._get_random_image_objective
         elif objective_type == "text":
             self.get_objective_state = self._get_text_objective
@@ -87,6 +86,13 @@ class ImageGridWorld(object):
         self.reward_position = self.objectives[np.random.randint(len(self.objectives))]
 
         self.post_process = self._change_objective
+
+        if config["reward_type"] == "penalty" :
+            self.get_reward = self._get_reward_with_penalty
+        elif config["reward_type"] == "no_penalty" :
+            self.get_reward = self._get_reward_no_penalty
+        else:
+            raise NotImplementedError("Specify if at each step you're penalized or not")
 
         # ==================== Maze Type ==========================
         # =========================================================
@@ -141,7 +147,7 @@ class ImageGridWorld(object):
             y = np.random.randint(self.n_col)
             x = np.random.randint(self.n_row)
             self.position = (x, y)
-            position_on_reward = bool(self.get_reward())
+            position_on_reward = self.get_reward() == 1
 
         return self.get_state()
 
@@ -203,11 +209,17 @@ class ImageGridWorld(object):
         x,y = self.position
         return self.grid[x,y]
 
-    def get_reward(self):
+    def _get_reward_no_penalty(self):
         if np.all(self.position == self.reward_position):
             return 1
         else:
             return 0
+
+    def _get_reward_with_penalty(self):
+        if np.all(self.position == self.reward_position):
+            return 1
+        else:
+            return -0.1
 
     def render(self, display=True):
         """

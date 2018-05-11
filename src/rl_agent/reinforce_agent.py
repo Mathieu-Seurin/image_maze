@@ -109,7 +109,7 @@ class ReinforceAgent(object):
         action = m.sample()
         return action.data[0]
 
-    def optimize(self, state, action, next_state, reward, batch_size=16):
+    def optimize(self, state, action, next_state, reward):
         # Just store all relevant info to do batch learning at end of epoch
         self.rewards_epoch.append(reward)
         self.actions_epoch.append(action)
