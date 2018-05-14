@@ -31,17 +31,19 @@ def plot_single_image(im):
 
 
 class ImageFmapGridWorld(object):
-    def __init__(self, config):
+    def __init__(self, config, pretrained_features, save_image):
         # Use image normalization after loading?
         self.mean_per_channel = np.array([0.5450519,   0.88200397,  0.54505189])
         self.std_per_channel = np.array([0.35243599, 0.23492979,  0.33889725])
 
+        # if you want to save replay or not, to save computation
+        self.save_image = save_image
+
         # Just to remember the last images you loaded
         self.last_chosen_file = ''
 
-
-
-        self.preproc_state = config['preproc_state']
+        # If you want to use pretrain_features or raw images as state/objective
+        self.preproc_state = pretrained_features
 
         self.n_objectives = 1 # Default
         self.is_multi_objective = False #Default
@@ -52,7 +54,6 @@ class ImageFmapGridWorld(object):
         self.position = []
 
         self.grid = []
-        self.grid_preprocessed = []
         self.grid_type = config["maze_type"]
         self.create_grid_of_image(show=False)
 
@@ -107,6 +108,10 @@ class ImageFmapGridWorld(object):
         self.count_ep_in_this_maze = 0  # To change maze every 'n' step
         self.change_maze_every_n = float("inf") if config["change_maze"]==0 else config["change_maze"]
 
+        if config["time_penalty"]:
+            self.get_reward = self._get_reward_with_penalty
+        else:
+            self.get_reward = self._get_reward_no_penalty
 
     def get_state(self):
         state = dict()
@@ -261,12 +266,17 @@ class ImageFmapGridWorld(object):
 
         return torch.cat(all_directions_obs, 0)
 
-
-    def get_reward(self):
+    def _get_reward_no_penalty(self):
         if np.all(self.position == self.reward_position):
             return 1
         else:
             return 0
+
+    def _get_reward_with_penalty(self):
+        if np.all(self.position == self.reward_position):
+            return 1
+        else:
+            return -0.1
 
     def render(self, show=False):
         """
@@ -320,7 +330,12 @@ class ImageFmapGridWorld(object):
                 for j in range(self.n_col):
 
                     raw_img = self.load_image_or_fmap(folder='src/feature_map_maze/maze_images/{}', class_id=count, preproc=False, raw=True)
-                    self.grid[i,j] = self.load_image_or_fmap(folder='src/feature_map_maze/maze_images/{}', class_id=count)
+                    if self.save_image:
+                        self.grid_plot[i,j] = raw_img
+                        use_last_chosen_file = True
+                    else:
+                        use_last_chosen_file = False
+                    self.grid[i,j] = self.load_image_or_fmap(folder='src/feature_map_maze/maze_images/{}', class_id=count, use_last_chosen_file=use_last_chosen_file)
 
                     count += 1
         else:

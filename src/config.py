@@ -60,7 +60,16 @@ def load_config_and_logger(env_config_file, model_config_file, exp_dir,
     with open(save_path.format("config_files.txt"), "w") as f:
         f.write(env_config_file)
         if env_ext_file:
-            f.write(env_config_file)
+            f.write(env_config_file+"\n")
+        else:
+            f.write("None")
+        f.write("\n")
+
+        f.write(model_config_file)
+        if model_ext_file:
+            f.write(model_ext_file+"\n")
+        else:
+            f.write("None")
 
     # Create logger
     logger = create_logger(save_path.format('train.log'))

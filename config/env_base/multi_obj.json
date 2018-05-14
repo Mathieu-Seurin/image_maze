@@ -8,9 +8,9 @@
     "state_type" : "surrounding",
     "change_maze" : 0,
     "maze_type" : "sequential",
-    "reward_type" : "no_penalty",
+    "time_penalty" : false,
     "objective" : {
-      "type" : "image",
+      "type" : "same_image",
       "curriculum":
       {
         "n_objective" : 2,

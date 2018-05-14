@@ -44,11 +44,15 @@ class VisionFilmGen(nn.Module):
             self.layer1 = lambda x:x
             self.n_intermediate_channel = self.n_channel_in
 
-        self.layer2 = nn.Sequential(
+        if self.final_kernel_size > 0:
+            self.layer2 = nn.Sequential(
             nn.Conv2d(self.n_intermediate_channel, self.n_final_channel, kernel_size=self.final_kernel_size, padding=2),
             nn.BatchNorm2d(self.n_final_channel),
             nn.ReLU(),
             nn.MaxPool2d(2))
+        else:
+            self.layer1 = lambda x: x
+            self.n_intermediate_channel = self.n_channel_in
 
         # Have to determine shape of output before feeding to fc
         tmp = Variable(torch.zeros(1, *self.input_shape))

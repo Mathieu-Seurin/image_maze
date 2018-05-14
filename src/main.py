@@ -3,7 +3,6 @@ import logging
 import time
 from itertools import count
 
-from maze import ImageGridWorld
 from feature_maze import ImageFmapGridWorld
 
 from rl_agent.basic_agent import AbstractAgent
@@ -38,8 +37,10 @@ config, exp_identifier, save_path = load_config_and_logger(env_config_file=args.
 logging = logging.getLogger()
 set_seed(config, args)
 
+verbosity = config["io"]["verbosity"]
+save_image = bool(config["io"]["num_epochs_to_store"])
 
-env = ImageFmapGridWorld(config=config["env_type"])
+env = ImageFmapGridWorld(config=config["env_type"], pretrained_features=config["pretrained_features"], save_image=save_image)
 
 if config["agent_type"] == 'random':
     rl_agent = AbstractAgent(config, env.action_space())
@@ -57,7 +58,6 @@ epsilon_init = config["train_params"]["epsilon_schedule"][1]
 test_every = config["train_params"]["test_every"]
 n_epochs_test = config["train_params"]["n_epochs_test"]
 
-verbosity = config["io"]["verbosity"]
 
 
 def train(agent, env):
@@ -97,8 +97,6 @@ def train(agent, env):
             state = next_state
 
         agent.callback(epoch)
-
-
 
 
 def test(agent, env, config, num_test):
