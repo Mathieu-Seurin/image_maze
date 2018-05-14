@@ -98,11 +98,16 @@ def create_logger(save_path):
 
     return logger
 
-def set_seed(config):
+def set_seed(config, parsed_args=None):
+
     import numpy as np
     import torch
     import random
-    seed = config["seed"]
+    if parsed_args is None:
+        seed = config["seed"]
+    else:
+        print('Using seed {} from parser argument'.format(parsed_args.seed))
+        seed = parsed_args.seed
     if seed > -1:
         np.random.seed(seed)
         torch.manual_seed(seed)

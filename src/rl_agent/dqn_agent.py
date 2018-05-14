@@ -43,6 +43,7 @@ class DQNAgent(object):
             self.forward_model.cuda()
             self.ref_model.cuda()
         self.n_action = n_action
+
         self.memory = ReplayMemory(16384)
         self.discount_factor = self.forward_model.discount_factor
         self.tau = config['tau']

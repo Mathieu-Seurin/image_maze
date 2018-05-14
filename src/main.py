@@ -4,6 +4,8 @@ import time
 from itertools import count
 
 from maze import ImageGridWorld
+from feature_maze import ImageFmapGridWorld
+
 from rl_agent.basic_agent import AbstractAgent
 from rl_agent.dqn_agent import DQNAgent
 from rl_agent.reinforce_agent import ReinforceAgent
@@ -21,6 +23,7 @@ parser.add_argument("-model_config", type=str, help="Which file correspond to th
 parser.add_argument("-env_extension", type=str, help="Do you want to override parameters in the env file ?")
 parser.add_argument("-model_extension", type=str, help="Do you want to override parameters in the model file ?")
 parser.add_argument("-display", type=str, help="Display images or not")
+parser.add_argument("-seed", type=int, default=0, help="Manually set seed when launching exp")
 
 args = parser.parse_args()
 # Load_config also creates logger inside (INFO to stdout, INFO to train.log)
@@ -33,10 +36,10 @@ config, exp_identifier, save_path = load_config_and_logger(env_config_file=args.
                                                            )
 
 logging = logging.getLogger()
-set_seed(config)
+set_seed(config, args)
 
-env = ImageGridWorld(config=config["env_type"], show=False)
-env.reset()
+
+env = ImageFmapGridWorld(config=config["env_type"])
 
 if config["agent_type"] == 'random':
     rl_agent = AbstractAgent(config, env.action_space())
@@ -46,7 +49,6 @@ elif config["agent_type"] == 'reinforce':
     rl_agent = ReinforceAgent(config['reinforce_params'], env.action_space())
 else:
     assert False, "Wrong agent type : {}".format(config["agent_type"])
-
 
 
 n_epochs = config["train_params"]["n_epochs"]
@@ -87,10 +89,8 @@ def train(agent, env):
                     f.write("{} {}\n".format(epoch, reward))
             make_eval_plot(save_path.format('train_lengths'), save_path.format('eval_curve.png'))
 
-
         while not done and num_step < time_out:
             num_step += 1
-
             action = agent.forward(state, eps_range[epoch])
             next_state, reward, done, _ = env.step(action)
             loss = agent.optimize(state, action, next_state, reward)
@@ -110,7 +110,9 @@ def test(agent, env, config, num_test):
     obj_type = config['env_type']['objective']['type']
     number_epochs_to_store = config['io']['num_epochs_to_store']
 
-    if obj_type in ['image', 'image_no_bkg', 'same_class']:
+    if obj_type == 'fixed':
+        test_objectives = [env.reward_position]
+    elif 'image' in obj_type:
         # For now, test only on previously seen examples
         test_objectives = env.objectives
     else:
@@ -126,7 +128,6 @@ def test(agent, env, config, num_test):
             env.count_ep_in_this_maze = 0
             env.count_current_objective = 0
 
-
             state = env.reset(show=False)
 
             done = False
@@ -136,7 +137,7 @@ def test(agent, env, config, num_test):
             video = []
 
             if epoch < number_epochs_to_store:
-                video.append(env.render(display=False))
+                video.append(env.render(show=False))
 
             while not done and num_step < time_out:
                 num_step += 1
@@ -144,7 +145,7 @@ def test(agent, env, config, num_test):
                 next_state, reward, done, _ = env.step(action)
 
                 if epoch < number_epochs_to_store:
-                    video.append(env.render(display=False))
+                    video.append(env.render(show=False))
 
                 epoch_rewards += [reward]
                 state = next_state

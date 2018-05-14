@@ -17,7 +17,8 @@
     "use_batch_norm": false,
     "gamma": 0.99,
     "update_every": 2,
-    "concatenate_objective" : true
+    "concatenate_objective" : true,
+    "use_first_block": false
   }
 
 }

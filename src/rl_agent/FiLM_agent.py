@@ -11,17 +11,22 @@ from .gpu_utils import FloatTensor
 
 class VisionFilmGen(nn.Module):
 
-    def __init__(self, config, n_block_to_modulate, n_channel_in, n_features_per_block):
+    def __init__(self, config, n_block_to_modulate, n_features_per_block, input_shape):
         super(VisionFilmGen, self).__init__()
 
         self.n_block_to_modulate = n_block_to_modulate
-        self.n_channel_in = n_channel_in
-        self.n_features_per_block = n_features_per_block
 
+        self.input_shape = input_shape
+        self.n_channel_in = self.input_shape[0]
+
+        self.n_features_per_block = n_features_per_block
         self.n_features_to_modulate = self.n_block_to_modulate*self.n_features_per_block
 
         self.n_intermediate_channel = config['n_intermediate_channel']
+        self.intermediate_kernel_size = config['intermediate_kernel_size']
+
         self.n_final_channel = config['n_final_channel']
+        self.final_kernel_size = config['final_kernel_size']
 
         self.n_hidden_gamma = config['n_hidden_gamma']
         self.n_hidden_beta = config['n_hidden_beta']
@@ -29,37 +34,46 @@ class VisionFilmGen(nn.Module):
         self.dropout = config['dropout']
 
         # Convolution for objective as an image
-        self.layer1 = nn.Sequential(
-            nn.Conv2d(self.n_channel_in, self.n_intermediate_channel, kernel_size=5, padding=2),
-            nn.BatchNorm2d(self.n_intermediate_channel),
-            nn.ReLU(),
-            nn.MaxPool2d(2))
+        if self.intermediate_kernel_size > 0:
+            self.layer1 = nn.Sequential(
+                nn.Conv2d(self.n_channel_in, self.n_intermediate_channel, kernel_size=self.intermediate_kernel_size, padding=2),
+                nn.BatchNorm2d(self.n_intermediate_channel),
+                nn.ReLU(),
+                nn.MaxPool2d(2))
+        else:
+            self.layer1 = lambda x:x
+            self.n_intermediate_channel = self.n_channel_in
+
         self.layer2 = nn.Sequential(
-            nn.Conv2d(self.n_intermediate_channel, self.n_final_channel, kernel_size=5, padding=2),
+            nn.Conv2d(self.n_intermediate_channel, self.n_final_channel, kernel_size=self.final_kernel_size, padding=2),
             nn.BatchNorm2d(self.n_final_channel),
             nn.ReLU(),
             nn.MaxPool2d(2))
 
+        # Have to determine shape of output before feeding to fc
+        tmp = Variable(torch.zeros(1, *self.input_shape))
+        conv_out_shape = self.layer2(self.layer1(tmp)).shape
+        n_features_after_conv = conv_out_shape[1] * conv_out_shape[2] * conv_out_shape[3]
+
         # Add hidden layer (and dropout) before computing gammas and betas
-        size_conv_output = 7 * 7 * self.n_final_channel
         if self.n_hidden_gamma > 0:
-            hidden_layer_gamma = nn.Linear(size_conv_output, self.n_hidden_gamma)
+            hidden_layer_gamma = nn.Linear(n_features_after_conv, self.n_hidden_gamma)
             dropout_gamma = nn.Dropout(self.dropout)
             relu = nn.ReLU()
             self.hidden_layer_gamma = nn.Sequential(hidden_layer_gamma, dropout_gamma, relu)
         else:
             self.hidden_layer_gamma = lambda x:x # Identity
-            self.n_hidden_gamma = size_conv_output
+            self.n_hidden_gamma = n_features_after_conv
 
         if self.n_hidden_beta > 0:
-            hidden_layer_beta = nn.Linear(size_conv_output, self.n_hidden_beta)
+            hidden_layer_beta = nn.Linear(n_features_after_conv, self.n_hidden_beta)
             dropout_beta = nn.Dropout(self.dropout)
             relu = nn.ReLU()
             self.hidden_layer_beta = nn.Sequential(hidden_layer_beta, dropout_beta, relu)
 
         else:
             self.hidden_layer_beta = lambda x:x # Identity
-            self.n_hidden_beta = size_conv_output
+            self.n_hidden_beta = n_features_after_conv
 
         # compute gammas and betas
         self.fc_gammas = nn.Linear(self.n_hidden_gamma, self.n_features_to_modulate)
@@ -104,31 +118,30 @@ class FilmedNet(nn.Module):
 
 
         if self.is_multi_objective and not self.use_film:
-            self.n_channel_per_state = state_dim['concatenated'][0]
+            self.input_shape = state_dim['concatenated']
         else:
-            self.n_channel_per_state = state_dim['env_state'][0]
+            self.input_shape = state_dim['env_state']
+            self.objective_shape = state_dim['objective']
 
-        self.n_pixel = state_dim['env_state'][1] * state_dim['env_state'][2]
-
-        self.n_channel_per_objective = state_dim['objective'][0]
+        self.n_channel_per_state = self.input_shape[0]
 
         if is_multi_objective and self.use_film:
             self.film_gen = VisionFilmGen(config=config['film_gen_params'],
                                           n_block_to_modulate=self.n_modulated_block,
-                                          n_channel_in=self.n_channel_per_objective,
-                                          n_features_per_block=self.n_channel_per_state)
+                                          n_features_per_block=self.n_channel_per_state,
+                                          input_shape=self.objective_shape)
 
         self.n_actions = n_actions
 
-        self.regular_block = nn.ModuleList()
-        self.modulated_block = nn.ModuleList()
+        self.regular_blocks = nn.ModuleList()
+        self.modulated_blocks = nn.ModuleList()
 
         # Create resblock, not modulated by FiLM
         for regular_resblock_num in range(self.n_regular_block):
             current_regular_resblock = ResidualBlock(in_dim=self.n_channel_per_state,
                                              with_residual=True)
 
-            self.regular_block.append(current_regular_resblock)
+            self.regular_blocks.append(current_regular_resblock)
 
         # Create FiLM-ed resblock
         for modulated_block_num in range(self.n_modulated_block):
@@ -138,7 +151,7 @@ class FilmedNet(nn.Module):
                                               with_cond=[True],
                                               dropout=self.resblock_dropout)
 
-            self.modulated_block.append(current_modulated_resblock)
+            self.modulated_blocks.append(current_modulated_resblock)
 
 
         # head
@@ -146,7 +159,7 @@ class FilmedNet(nn.Module):
                                    out_channels=self.n_channel_head,
                                    kernel_size=self.kernel_size_head)
 
-        in_features = int(self.n_pixel * self.n_channel_head / self.pool_kernel_size_head**2)
+        in_features = self.conv_output_size()
 
         self.fc1 = nn.Linear(in_features=in_features, out_features=self.n_hidden)
         self.fc2 = nn.Linear(in_features=self.n_hidden, out_features=self.n_actions)
@@ -179,10 +192,10 @@ class FilmedNet(nn.Module):
             gammas = Variable(torch.ones(batch_size, self.n_channel_per_state * self.n_modulated_block).type(FloatTensor))
             betas = Variable(torch.zeros_like(gammas.data).type(FloatTensor))
 
-        for i,regular_resblock in enumerate(self.regular_block):
+        for i,regular_resblock in enumerate(self.regular_blocks):
             x = regular_resblock.forward(x)
 
-        for i,modulated_resblock in enumerate(self.modulated_block):
+        for i,modulated_resblock in enumerate(self.modulated_blocks):
             gamma_beta_id = slice(self.n_channel_per_state * i, self.n_channel_per_state * (i + 1))
             x = modulated_resblock.forward(x, gammas=gammas[:, gamma_beta_id], betas=betas[:, gamma_beta_id])
 
@@ -190,12 +203,31 @@ class FilmedNet(nn.Module):
 
         x = F.max_pool2d(x, kernel_size=self.pool_kernel_size_head)
 
-        x = x.view(x.shape[0], -1)
+        x = x.view(x.size(0), -1)
 
         x = F.relu(self.fc1(x))
         x = F.dropout(x, p=self.fc_dropout, training=self.training)
         x = self.fc2(x)
         return x
+
+    def conv_output_size(self):
+        # Have to determine shape of output before feeding to fc
+        gammas = Variable(torch.ones(1, self.n_channel_per_state * self.n_modulated_block))
+        betas = Variable(torch.zeros_like(gammas.data))
+
+        tmp = Variable(torch.zeros(1, *self.input_shape))
+        for i,regular_resblock in enumerate(self.regular_blocks):
+            tmp = regular_resblock.forward(tmp)
+        for i,modulated_resblock in enumerate(self.modulated_blocks):
+            gamma_beta_id = slice(self.n_channel_per_state * i, self.n_channel_per_state * (i + 1))
+            tmp = modulated_resblock.forward(tmp, gammas=gammas[:, gamma_beta_id], betas=betas[:, gamma_beta_id])
+
+        tmp = self.head_conv(tmp)
+        tmp = F.max_pool2d(tmp, kernel_size=self.pool_kernel_size_head)
+
+        conv_out_shape = tmp.shape
+
+        return conv_out_shape[1] * conv_out_shape[2] * conv_out_shape[3]
 
 
 if __name__ == "__main__":
@@ -217,5 +249,3 @@ if __name__ == "__main__":
 
     filmed_net = FilmedNet(config)
     filmed_net.forward(x)
-
-

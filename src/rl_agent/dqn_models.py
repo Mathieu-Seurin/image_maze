@@ -110,19 +110,35 @@ class SoftmaxDQN(nn.Module):
         self.n_channels = config['n_channels']
         self.conv_shapes = config['conv_shapes']
         self.dense_shapes = config['dense_shapes'] + [self.output_size]
-        self.use_batch_norm = config['use_batch_norm'] == 'True'
+        self.use_batch_norm = config['use_batch_norm']
         self.lr = config['learning_rate']
+        self.use_first_block = config['use_first_block']
+
+        prev_shape = self.n_channels
+
+        if self.use_first_block:
+            self.cnn1 = nn.Conv2d(in_channels=self.n_channels, out_channels=16, kernel_size=5,stride=1,padding=2)
+            self.relu1=nn.ELU()
+            nn.init.xavier_uniform(self.cnn1.weight)
+            self.maxpool1=nn.MaxPool2d(kernel_size=2)
+            self.cnn2=nn.Conv2d(in_channels=16,out_channels=32,kernel_size=5,stride=1,padding=2)
+            self.relu2=nn.ELU()
+            self.dropout=nn.Dropout(0.2)
+            nn.init.xavier_uniform(self.cnn2.weight)
+            self.maxpool2=nn.MaxPool2d(kernel_size=2)
+
+            prev_shape = self._forward_first_block(Variable(torch.rand(1,self.n_channels,28,28))).shape[1]
+            print(prev_shape)
+
 
         # At least 1 conv, then dense head
         for idx, shape in enumerate(self.conv_shapes):
-            if idx == 0:
-                conv_layers.append(nn.Conv2d(self.n_channels, shape, kernel_size=3, stride=2))
-            else:
-                conv_layers.append(nn.Conv2d(tmp, shape, kernel_size=5, stride=2))
+            conv_layers.append(nn.Conv2d(prev_shape, shape, kernel_size=5, stride=2))
             conv_layers.append(nn.ReLU())
             if self.use_batch_norm:
                 conv_layers.append(nn.BatchNorm2d(shape))
-            tmp = shape
+            prev_shape = shape
+
         self.conv_layers = conv_layers
 
         # Infer shape after flattening
@@ -157,9 +173,24 @@ class SoftmaxDQN(nn.Module):
     def _get_conv_output_size(self, shape):
         bs = 1
         inpt = Variable(torch.rand(bs, *shape))
+        inpt = self._forward_first_block(inpt)
         output_feat = self._forward_conv(inpt)
         total_size = output_feat.data.view(bs, -1).size(1)
         return total_size
+
+    def _forward_first_block(self, x):
+        if not self.use_first_block:
+            return x
+
+        out=self.cnn1(x)
+        out=self.relu1(out)
+        out=self.maxpool1(out)
+        out=self.dropout(out)
+        out=self.cnn2(out)
+        out=self.relu2(out)
+        out=self.maxpool2(out)
+        out=self.dropout(out)
+        return out
 
     def _forward_conv(self, x):
         for layer in self.conv_layers:
@@ -172,6 +203,33 @@ class SoftmaxDQN(nn.Module):
         return x
 
     def forward(self, x):
+        x = self._forward_first_block(x)
         x = self._forward_conv(x)
         x = x.view(x.size(0), -1)
         return self._forward_dense(x)
+
+class CNNExtractor(nn.Module):
+    def __init__(self):
+        super (CNNExtractor, self).__init__()
+        self.cnn1 = nn.Conv2d(in_channels=3,out_channels=16,kernel_size=5,stride=1,padding=2)
+        self.relu1=nn.ELU()
+        nn.init.xavier_uniform(self.cnn1.weight)
+        self.maxpool1=nn.MaxPool2d(kernel_size=2)
+        self.cnn2=nn.Conv2d(in_channels=16,out_channels=32,kernel_size=5,stride=1,padding=2)
+        self.relu2=nn.ELU()
+        self.dropout=nn.Dropout(0.2)
+        nn.init.xavier_uniform(self.cnn2.weight)
+        self.maxpool2=nn.MaxPool2d(kernel_size=2)
+
+        print('Size of the feature map : {}'.format(self.forward(Variable(torch.rand(1,3,28,28))).shape))
+
+    def forward(self,x):
+        out=self.cnn1(x)
+        out=self.relu1(out)
+        out=self.maxpool1(out)
+        out=self.dropout(out)
+        out=self.cnn2(out)
+        out=self.relu2(out)
+        out=self.maxpool2(out)
+        out=self.dropout(out)
+        return out

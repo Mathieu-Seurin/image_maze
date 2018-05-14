@@ -16,12 +16,9 @@ import torchvision
 import torch.nn.functional as F
 from torchvision import datasets, models, transforms
 
-use_cuda = torch.cuda.is_available()
-FloatTensor = torch.cuda.FloatTensor if use_cuda else torch.FloatTensor
-LongTensor = torch.cuda.LongTensor if use_cuda else torch.LongTensor
-ByteTensor = torch.cuda.ByteTensor if use_cuda else torch.ByteTensor
-Tensor = FloatTensor
+from image_utils import channel_first_to_channel_last, channel_last_to_channel_first
 
+from rl_agent.gpu_utils import use_cuda, FloatTensor, LongTensor, ByteTensor, Tensor
 from PIL import Image
 
 # For debugging, not actually necessary
@@ -33,13 +30,21 @@ def plot_single_image(im):
     plt.show()
 
 
-
 class ImageFmapGridWorld(object):
     def __init__(self, config):
         # Use image normalization after loading?
         self.mean_per_channel = np.array([0.5450519,   0.88200397,  0.54505189])
         self.std_per_channel = np.array([0.35243599, 0.23492979,  0.33889725])
-        self.use_normalization = (config['use_normalization'] == 'True')
+
+        # Just to remember the last images you loaded
+        self.last_chosen_file = ''
+
+
+
+        self.preproc_state = config['preproc_state']
+
+        self.n_objectives = 1 # Default
+        self.is_multi_objective = False #Default
 
         self.n_row = config["n_row"]
         self.n_col = config["n_col"]
@@ -47,15 +52,14 @@ class ImageFmapGridWorld(object):
         self.position = []
 
         self.grid = []
-        self.preprocessed_grid = []
+        self.grid_preprocessed = []
         self.grid_type = config["maze_type"]
         self.create_grid_of_image(show=False)
-        self.preproc_state = (config['preproc_state'] == 'True')
 
         if config["state_type"] == "current":
-            self.get_env_state = lambda: self.get_current_square(preproc = self.preproc_state)
+            self.get_env_state = self.get_current_square
         elif config["state_type"] == "surrounding":
-            self.get_env_state = lambda: self.get_current_square_and_all_directions(preproc = self.preproc_state)
+            self.get_env_state = self.get_current_square_and_all_directions
         else:
             #Todo : can view only in front of him (change actions)
             raise NotImplementedError("Need to implement front view, maybe other maze")
@@ -67,21 +71,17 @@ class ImageFmapGridWorld(object):
             self.post_process = lambda *args: None
         else:
             objective_type = config["objective"]["type"]
-            if  objective_type == "same_image":
+
+            self.get_objective_state = self.load_image_or_fmap
+
+            if objective_type == "same_image":
                 # Exactly the same image as on the exit
-                self.get_objective_state = self._get_same_image_objective
-            elif  objective_type == "random_image":
+                self.get_objective_state = self.get_current_objective
+            elif objective_type == "random_image":
                 # Random image with color from same class as exit
-                self.get_objective_state = self._get_random_image_objective
-            elif  objective_type == "random_image_no_bkg":
-                # Random image from same class as exit without background
-                self.get_objective_state = self._get_random_image_no_bkg_objective
-            elif  objective_type == "preprocessed_image":
-                # Random fmap from same class as exit with background
-                self.get_objective_state = self._get_preprocessed_image_objective
-            elif  objective_type == "preprocessed_image_no_bkg":
-                # Random fmap from same class as exit without background
-                self.get_objective_state = self._get_preprocessed_image_no_bkg_objective
+                self.image_folder = 'obj_images/with_bkg/{}'
+            elif objective_type == "random_image_no_bkg":
+                self.image_folder = 'obj_images/without_bkg/{}'
             elif objective_type == "text":
                 # Text description (should add this to the datasets)
                 self.get_objective_state = self._get_text_objective
@@ -90,6 +90,7 @@ class ImageFmapGridWorld(object):
 
             # Number of objectives / frequency of change
             self.n_objectives = config["objective"]["curriculum"]["n_objective"]
+            self.is_multi_objective = self.n_objectives > 1
             self.objective_changing_every = config["objective"]["curriculum"]["change_every"]
 
             # Construct the list of objectives (the order is always the same)
@@ -111,60 +112,46 @@ class ImageFmapGridWorld(object):
         state = dict()
         state["env_state"] = self.get_env_state()
         state["objective"] = self.get_objective_state()
+        # print(state['objective'].shape, state['env_state'].shape)
         return state
 
-    def load_image_or_fmap(self, folder=None, class_id=None, seed=None, preproc=False):
-        # With preproc=True, load a feature_map not an image
-        # Returned object is FloatTensor
-        path_to_images = folder.format(class_id)
-        loader_local_rand = np.random.RandomState(seed=seed)
-        all_files = os.listdir(path_to_images)
+    def get_current_objective(self):
+        x,y = self.reward_position
+        return Tensor(self.grid[x,y])
+
+    def load_image_or_fmap(self, class_id, folder=None, preproc=None, raw=None, use_last_chosen_file=None):
+        # Default is given by type of env, but can be overridden
+        if preproc is None: preproc = self.preproc_state
+        if folder is None: folder = self.image_folder
 
         ext = 'jpg' if not preproc else 'tch'
+
+        path_to_images = folder.format(class_id)
+        all_files = os.listdir(path_to_images)
         filtered_files = [fn for fn in all_files if fn.split('.')[-1] == ext]
 
-        chosen_file = loader_local_rand.choice(filtered_files)
-        if preproc:
-            return torch.load(path_to_images + '/{}'.format(chosen_file))
+        # That way, you can reuse the function for both the raw and preproc image
+        if use_last_chosen_file:
+            chosen_file = self.last_chosen_file+'.'+ext
         else:
-            return ToTensor()(Image.open(path_to_images + '/{}'.format(chosen_file)))
+            chosen_file = np.random.choice(filtered_files)
+            #Keep only the id
+            self.last_chosen_file = chosen_file.split('.')[0]
 
+        # Not preproc
+        if raw or not preproc:
+            img = Image.open(path_to_images + '/{}'.format(chosen_file))
+            if not raw:
+                # Images retrieved as tensors in (0,1)
+                img = channel_last_to_channel_first(np.array(img))
+                # Won't do anything unless specified in config
+                img = FloatTensor(self.normalize(img))
 
-    def _get_same_image_objective(self):
-        x,y = self.reward_position
-        return FloatTensor(self.grid[x,y])
+        # preproc is True : Use pretrain images
+        else:
+            img = torch.load(path_to_images + '/{}'.format(chosen_file)).type(Tensor)
 
-    def _get_random_image_objective(self):
-        x,y = self.reward_position
-        cat = x * self.n_col + y
-        tmp = np.random.randint(2**16)
-        img = self.load_image_or_fmap(folder='obj_images/with_bkg/{}', class_id=cat, seed=tmp)
-        # plot_single_image(img)
         return img
-
-    def _get_random_image_no_bkg_objective(self):
-        x,y = self.reward_position
-        cat = x * self.n_col + y
-        tmp = np.random.randint(2**16)
-        img = self.load_image_or_fmap(folder='obj_images/without_bkg/{}', class_id=cat, seed=tmp)
-        # plot_single_image(img)
-        return img
-
-    def _get_preprocessed_image_objective(self):
-        x,y = self.reward_position
-        cat = x * self.n_col + y
-        tmp = np.random.randint(2**16)
-        fmap = self.load_image_or_fmap(folder='obj_images/with_bkg/{}', preproc=True, class_id=cat, seed=tmp)
-        # print(fmap.shape)
-        return fmap
-
-    def _get_preprocessed_image_no_bkg_objective(self):
-        x,y = self.reward_position
-        cat = x * self.n_col + y
-        tmp = np.random.randint(2**16)
-        fmap = self.load_image_or_fmap(folder='obj_images/without_bkg/{}', preproc=True, class_id=cat, seed=tmp)
-        # print(fmap.shape)
-        return fmap
 
     def _get_text_objective(self):
         raise NotImplementedError("Not yet, image is only available at the moment")
@@ -193,20 +180,41 @@ class ImageFmapGridWorld(object):
 
     def step(self, action):
         x,y = self.position
+        reward = 0
+
+        # Discourage invalid moves?
+        wrong_action_penalty = 0.0
+
         if action == 0: # NORTH
-            x = min(self.n_row-1, x+1)
+            x_ = min(self.n_row-1, x+1)
+            if x_ == x:
+                reward -= wrong_action_penalty
+            else:
+                x = x_
         elif action == 1:  # SOUTH
-            x = max(0, x-1)
+            x_ = max(0, x-1)
+            if x_ == x:
+                reward -= wrong_action_penalty
+            else:
+                x = x_
         elif action == 2:  # EAST
-            y = max(0, y-1)
+            y_ = max(0, y-1)
+            if y_ == y:
+                reward -= wrong_action_penalty
+            else:
+                y = y_
         elif action == 3:  # WEST
-            y = min(self.n_col-1, y+1)
+            y_ = min(self.n_col-1, y+1)
+            if y_ == y:
+                reward -= wrong_action_penalty
+            else:
+                y = y_
         else:
             assert False, "Wrong action"
 
         self.position = (x,y)
         observation = self.get_state()
-        reward = self.get_reward()
+        reward += self.get_reward()
 
         if reward == 1:
             done = True
@@ -217,48 +225,41 @@ class ImageFmapGridWorld(object):
         info = copy(self.position)
         return observation, reward, done, info
 
-    def get_current_square(self, preproc=False):
+    def get_current_square(self):
         x,y = self.position
-        if preproc:
-            return FloatTensor(self.preprocessed_grid[x,y])
-        else:
-            return FloatTensor(self.grid[x,y])
+        return self.grid[x,y]
 
-    def get_square(self, x, y, preproc=False):
+    def get_square(self, x, y):
         x,y = self.position
-        if preproc:
-            return FloatTensor(self.preprocessed_grid[x,y])
-        else:
-            return FloatTensor(self.grid[x,y])
+        return self.grid[x,y]
 
-    def get_current_square_and_all_directions(self, preproc=False):
+    def get_current_square_and_all_directions(self):
         x,y = self.position
-        all_directions_obs = [self.get_current_square(preproc=preproc),]
+        all_directions_obs = [self.get_current_square()]
 
         if x+1 < self.n_row : # North
-            all_directions_obs.append(self.get_square(x+1, y, preproc=preproc))
+            all_directions_obs.append(self.get_square(x+1, y))
         else:
-            all_directions_obs.append(torch.zeros(all_directions_obs[0].shape))
+            all_directions_obs.append(np.zeros(all_directions_obs[0].shape))
 
         if x-1 >= 0 : # South
-            all_directions_obs.append(self.get_square(x-1, y, preproc=preproc))
+            all_directions_obs.append(self.get_square(x-1, y))
         else:
-            all_directions_obs.append(torch.zeros(all_directions_obs[0].shape))
+            all_directions_obs.append(np.zeros(all_directions_obs[0].shape))
 
         if y-1 >= 0 : # East
-            all_directions_obs.append(self.get_square(x, y-1, preproc=preproc))
+            all_directions_obs.append(self.get_square(x, y-1))
         else:
-            all_directions_obs.append(torch.zeros(all_directions_obs[0].shape))
+            all_directions_obs.append(np.zeros(all_directions_obs[0].shape))
 
         if y+1 < self.n_col : # West
-            all_directions_obs.append(self.get_square(x, y+1, preproc=preproc))
+            all_directions_obs.append(self.get_square(x, y+1))
         else:
-            all_directions_obs.append(torch.zeros(all_directions_obs[0].shape))
+            all_directions_obs.append(np.zeros(all_directions_obs[0].shape))
 
-        # Ensure everyone is on GPU
-        all_directions_obs = tuple([x.cuda() for x in all_directions_obs])
+        all_directions_obs = [Tensor(obs) for obs in all_directions_obs]
 
-        return torch.cat(all_directions_obs)
+        return torch.cat(all_directions_obs, 0)
 
 
     def get_reward(self):
@@ -303,25 +304,24 @@ class ImageFmapGridWorld(object):
 
     def create_grid_of_image(self, show=False):
         grid_type = self.grid_type
+
         if grid_type == "sequential":
-            self.grid = np.zeros((self.n_row, self.n_col, 3, 28, 28))
+
             # TODO : make this less hard-wired...
-            self.grid_preprocessed = np.zeros((self.n_row, self.n_col, 32, 7, 7))
+            if self.preproc_state:
+                self.grid = np.zeros((self.n_row, self.n_col, 32, 7, 7))
+            else:
+                self.grid = np.zeros((self.n_row, self.n_col, 3, 28, 28))
+
             self.grid_plot = np.zeros((self.n_row, self.n_col, 28, 28, 3))
 
             count = 0
             for i in range(self.n_row):
                 for j in range(self.n_col):
-                    plop = np.random.randint(2**16)
-                    raw_img = self.load_image_or_fmap(folder='maze_images/{}' ,class_id=count, seed=plop)
-                    fmap = self.load_image_or_fmap(folder='maze_images/{}', class_id=count, seed=plop, preproc=True)
-                    self.grid_preprocessed[i,j] = fmap
 
-                    # Images retrieved as tensors in (0,1)
-                    self.grid_plot[i,j] = raw_img.cpu().numpy().transpose((1, 2, 0))
-                    # Won't do anything unless specified in config
-                    img = self.normalize(raw_img)
-                    self.grid[i,j] = img
+                    raw_img = self.load_image_or_fmap(folder='src/feature_map_maze/maze_images/{}', class_id=count, preproc=False, raw=True)
+                    self.grid[i,j] = self.load_image_or_fmap(folder='src/feature_map_maze/maze_images/{}', class_id=count)
+
                     count += 1
         else:
             # Todo : TSNE order
@@ -333,18 +333,27 @@ class ImageFmapGridWorld(object):
         return 4
 
     def normalize(self, im):
-        if not self.use_normalization:
-            return im
         im[:,:,0] = (im[:,:,0] - self.mean_per_channel[0]) / self.std_per_channel[0]
         im[:,:,1] = (im[:,:,1] - self.mean_per_channel[1]) / self.std_per_channel[1]
         im[:,:,2] = (im[:,:,2] - self.mean_per_channel[2]) / self.std_per_channel[2]
         return im
 
+    def state_objective_dim(self):
+        self.reset(show=False)
+        state = self.get_state()
+        state_objective_dim_dict = dict()
+        state_objective_dim_dict['env_state'] = state['env_state'].shape
+        state_objective_dim_dict['objective'] = state['objective'].shape
+        concatened_dim = state_objective_dim_dict['env_state'][0] + state_objective_dim_dict['objective'][0]
+        state_objective_dim_dict['concatenated'] = (concatened_dim, state_objective_dim_dict['env_state'][1], state_objective_dim_dict['env_state'][2])
+
+        return state_objective_dim_dict
+
 if __name__ == "__main__":
     config = {"n_row":5,
               "n_col":4,
               "state_type": "surrounding",
-              "change_maze": 0,
+              "change_maze": 3,
               "preproc_state": "False",
               "use_normalization": "False",
               "maze_type": 'sequential',
@@ -352,7 +361,7 @@ if __name__ == "__main__":
                   "type":"random_image_no_bkg",
                   "curriculum":{
                   "n_objective":3,
-                  "change_every":10
+                  "change_every":2
                   }
                 }
               }

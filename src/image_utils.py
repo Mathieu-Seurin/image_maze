@@ -3,6 +3,11 @@ from skvideo.io import FFmpegWriter as VideoWriter
 import matplotlib.pyplot as plt
 import os
 
+def preload_list_images(self):
+    path_to_images = folder.format(class_id)
+    all_files = os.listdir(path_to_images)
+
+
 def to_rgb_channel_first(im):
 
     if im.ndim == 3: # Multiple images

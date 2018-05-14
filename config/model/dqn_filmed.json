@@ -7,7 +7,11 @@
     "film_gen_params":
       {
         "n_intermediate_channel": 16,
+        "intermediate_kernel_size": 5,
+
         "n_final_channel": 32,
+        "final_kernel_size": 5,
+
         "n_hidden_gamma" : 400,
         "n_hidden_beta" : 400,
         "dropout" : 0
