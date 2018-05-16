@@ -23,6 +23,7 @@ parser.add_argument("-env_extension", type=str, help="Do you want to override pa
 parser.add_argument("-model_extension", type=str, help="Do you want to override parameters in the model file ?")
 parser.add_argument("-display", type=str, help="Display images or not")
 parser.add_argument("-seed", type=int, default=0, help="Manually set seed when launching exp")
+parser.add_argument("-device", type=int, default=-1, help="Manually set GPU")
 
 args = parser.parse_args()
 # Load_config also creates logger inside (INFO to stdout, INFO to train.log)
@@ -36,6 +37,13 @@ config, exp_identifier, save_path = load_config_and_logger(env_config_file=args.
 
 logging = logging.getLogger()
 set_seed(config, args)
+
+if args.device != -1:
+    torch.cuda.set_device(args.device)
+    logging.info("Using device {}".format(torch.cuda.current_device()))
+else:
+    logging.info("Using default device from env")
+
 
 verbosity = config["io"]["verbosity"]
 save_image = bool(config["io"]["num_epochs_to_store"])

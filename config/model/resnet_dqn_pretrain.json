@@ -1,35 +1,24 @@
 {
-  "name": "resnet_dqn",
-
+  "name": "resnet_dqn_pretrain",
   "agent_type":"resnet_dqn",
+
   "pretrained_features" : true,
 
   "resnet_dqn_params":{
-    "film_gen_params":
-      {
-        "n_intermediate_channel": 16,
-        "intermediate_kernel_size": 0,
-
-        "n_final_channel": 32,
-        "final_kernel_size": 5,
-
-        "n_hidden_gamma" : 400,
-        "n_hidden_beta" : 400,
-        "dropout" : 0
-      },
     "learning_rate" : 1e-5,
     "batch_size" : 64,
-    "optimizer": "adam",
+    "optimizer": "rmsprop",
     "discount_factor": 0.99,
-    "n_modulated_block": 4,
-    "n_regular_block": 0,
+    "n_modulated_block": 0,
+    "n_regular_block": 2,
     "resblock_dropout": 0,
     "fc_dropout": 0,
     "n_hidden" : 400,
     "head_channel" : 3,
     "head_kernel" : 3,
     "head_pool_kernel" : 2,
-    "use_film" : true,
-    "tau" : 0.1
+    "use_film" : false,
+    "tau" : 0.1,
+    "soft_update" : false
   }
 }

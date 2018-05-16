@@ -67,16 +67,21 @@ def load_config_and_logger(env_config_file, model_config_file, exp_dir,
     with open(save_path.format("config_files.txt"), "w") as f:
         f.write(env_config_file)
         if env_ext_file:
-            f.write(env_config_file+"\n")
+            f.write(" "+env_config_file+"\n")
         else:
             f.write("None")
         f.write("\n")
 
         f.write(model_config_file)
         if model_ext_file:
-            f.write(model_ext_file+"\n")
+            f.write(" "+model_ext_file+"\n")
         else:
             f.write("None")
+
+    # Create empty training file
+    open(save_path.format('train_lengths'), 'w').close()
+    open(save_path.format('train_rewards'), 'w').close()
+    open(save_path.format('train.log'), 'w').close()
 
     # Create logger
     logger = create_logger(save_path.format('train.log'))
@@ -92,7 +97,8 @@ def load_config_and_logger(env_config_file, model_config_file, exp_dir,
     set_seed(config)
 
     # copy config file
-    shutil.copy(env_config_file, save_path.format('config.json'))
+    with open(save_path.format('config.json'), 'w') as f:
+        json.dump(config, f, indent=4, separators=(',', ': '))
 
     return config, exp_identifier, save_path
 
@@ -122,9 +128,9 @@ def set_seed(config, parsed_args=None):
     if parsed_args is None:
         seed = config["seed"]
     else:
-        print('Using seed {} from parser argument'.format(parsed_args.seed))
         seed = parsed_args.seed
     if seed > -1:
+        print('Using seed {}'.format(seed))
         np.random.seed(seed)
         torch.manual_seed(seed)
         random.seed(seed)

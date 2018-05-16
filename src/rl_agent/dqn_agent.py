@@ -46,16 +46,17 @@ class DQNAgent(object):
 
         self.memory = ReplayMemory(16384)
         self.discount_factor = self.forward_model.discount_factor
+
         self.tau = config['tau']
         self.batch_size = config["batch_size"]
+        self.soft_update = config["soft_update"]
 
     def apply_config(self, config):
         pass
 
     def callback(self, epoch):
-        pass
-        # if epoch % 10 == 0:
-        #     self.ref_model.load_state_dict(self.forward_model.state_dict())
+        if not self.soft_update and epoch % int(1/self.tau) == 0:
+            self.ref_model.load_state_dict(self.forward_model.state_dict())
 
     def train(self):
         self.forward_model.train()
@@ -152,7 +153,8 @@ class DQNAgent(object):
         self.forward_model.optimizer.step()
 
         # Update slowly ref model towards fast model, to stabilize training.
-        self.ref_model.load_state_dict(compute_slow_params_update(self.ref_model, self.forward_model, self.tau))
+        if self.soft_update:
+            self.ref_model.load_state_dict(compute_slow_params_update(self.ref_model, self.forward_model, self.tau))
 
         #new_params = freeze_as_np_dict(self.forward_model.state_dict())
         #check_params_changed(old_params, new_params)

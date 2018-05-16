@@ -21,13 +21,13 @@
   },
   "train_params": {
     "epsilon_schedule": ["exp", 0.95],
-    "n_epochs" : 2000,
+    "n_epochs" : 5000,
     "test_every": 100,
     "n_epochs_test": 7
   },
 
   "io": {
     "verbosity": 1,
-    "num_epochs_to_store": 2
+    "num_epochs_to_store": 0
   }
 }
