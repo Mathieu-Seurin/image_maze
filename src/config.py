@@ -22,25 +22,32 @@ def override_config_recurs(config, config_extension):
 
 def load_single_config(config_file):
     with open(config_file, 'rb') as f_config:
-        config_str = f_config.read()
-        config = json.loads(config_str.decode('utf-8'))
-    return config
+        config_str = f_config.read().decode('utf-8')
+        config = json.loads(config_str)
+    return config, config_str
 
 def load_config_and_logger(env_config_file, model_config_file, exp_dir,
                            args=None,
                            env_ext_file=None,
                            model_ext_file=None):
 
+    # To have a unique id, use raw str, concatenate them and hash it
+    config_str = ''
+    config_str_env_ext = ''
+    config_str_model_ext = ''
+
     # Load env file and model
-    env_config = load_single_config(env_config_file)
-    model_config = load_single_config(model_config_file)
+    env_config, config_str_env = load_single_config(env_config_file)
+    model_config, config_str_model = load_single_config(model_config_file)
+
 
     # Override env and model files if specified
     if env_ext_file is not None:
-        env_ext_config = load_single_config(env_ext_file)
+        env_ext_config, config_str_env_ext = load_single_config(env_ext_file)
         env_config = override_config_recurs(env_config, env_ext_config)
+
     if model_ext_file is not None:
-        model_ext_config = load_single_config(model_ext_file)
+        model_ext_config, config_str_model_ext = load_single_config(model_ext_file)
         model_config = override_config_recurs(model_config, model_ext_config)
 
     # Merge env and model config into one dict
@@ -49,8 +56,8 @@ def load_config_and_logger(env_config_file, model_config_file, exp_dir,
     config = env_config
 
     # Compute unique identifier based on those configs
-    config_byte = json.dumps(config).encode()
-    exp_identifier = hashlib.md5(config_byte).hexdigest()
+    config_str = config_str_env + config_str_env_ext + config_str_model + config_str_model_ext
+    exp_identifier = hashlib.md5(config_str.encode()).hexdigest()
 
     save_path = '{}/{{}}'.format(os.path.join(exp_dir, config['env_name'], exp_identifier))
     if not os.path.isdir(save_path.format('')):

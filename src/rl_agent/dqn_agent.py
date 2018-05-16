@@ -53,8 +53,9 @@ class DQNAgent(object):
         pass
 
     def callback(self, epoch):
-        if epoch % 10 == 0:
-            self.ref_model.load_state_dict(self.forward_model.state_dict())
+        pass
+        # if epoch % 10 == 0:
+        #     self.ref_model.load_state_dict(self.forward_model.state_dict())
 
     def train(self):
         self.forward_model.train()
