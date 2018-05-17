@@ -1,5 +1,6 @@
 {
-  "name": "basic_config",
+  "name": "resnet_dqn",
+
   "agent_type":"resnet_dqn",
   "pretrained_features" : false,
   "resnet_dqn_params":{

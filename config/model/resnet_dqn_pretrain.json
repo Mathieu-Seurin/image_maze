@@ -1,5 +1,6 @@
 {
   "name": "resnet_dqn_pretrain",
+
   "agent_type":"resnet_dqn",
 
   "pretrained_features" : true,

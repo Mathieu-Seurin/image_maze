@@ -5,6 +5,8 @@ import os
 
 import logging
 from logging.handlers import RotatingFileHandler
+import numpy as np
+
 
 def override_config_recurs(config, config_extension):
     try:
@@ -82,6 +84,7 @@ def load_config_and_logger(env_config_file, model_config_file, exp_dir,
     open(save_path.format('train_lengths'), 'w').close()
     open(save_path.format('train_rewards'), 'w').close()
     open(save_path.format('train.log'), 'w').close()
+    open(save_path.format('model_name'), 'w').write(config['name'])
 
     # Create logger
     logger = create_logger(save_path.format('train.log'))
@@ -122,7 +125,6 @@ def create_logger(save_path):
 
 def set_seed(config, parsed_args=None):
 
-    import numpy as np
     import torch
     import random
     if parsed_args is None:
@@ -141,7 +143,28 @@ def write_seed_extensions(seed_range, out_name='../config/seed_extensions/'):
             json.dump({"seed": seed}, f_extension)
 
 
+def save_stats(save_path, reward_list, length_list):
 
+    reward_list = np.array(reward_list)
+    length_list = np.array(length_list)
+
+    # Mean
+    open(save_path.format("mean_length"), "w").write(str(length_list.mean()))
+    open(save_path.format("mean_reward"), "w").write(str(reward_list.mean()))
+
+    # Last 5
+    np.save(save_path.format("last_5_length"), length_list[-5:])
+    np.save(save_path.format("last_5_reward"), reward_list[-5:])
+
+    # Last 10 std
+    open(save_path.format("last_10_std_length"), "w").write(str(length_list[-10:].std()))
+    open(save_path.format("last_10_std_reward"), "w").write(str(reward_list[-10:].std()))
+
+    # All
+    np.save(save_path.format("length"), length_list)
+    np.save(save_path.format("reward"), reward_list)
+
+    # Todo : more ?
 
 if __name__ == "__main__":
 

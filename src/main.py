@@ -1,3 +1,6 @@
+import matplotlib
+matplotlib.use('Agg')
+
 import argparse
 import logging
 import time
@@ -8,7 +11,7 @@ from feature_maze import ImageFmapGridWorld
 from rl_agent.basic_agent import AbstractAgent
 from rl_agent.dqn_agent import DQNAgent
 from rl_agent.reinforce_agent import ReinforceAgent
-from config import load_config_and_logger, set_seed
+from config import load_config_and_logger, set_seed, save_stats
 import torch.optim as optim
 import torch
 import numpy as np
@@ -81,6 +84,9 @@ def train(agent, env):
     logging.info("Begin Training")
     logging.info("===============")
 
+    reward_list = []
+    length_list = []
+
     for epoch in range(n_epochs):
         state = env.reset(show=False)
         done = False
@@ -93,8 +99,10 @@ def train(agent, env):
 
             with open(save_path.format('train_lengths'), 'a+') as f:
                 f.write("{} {}\n".format(epoch, length))
+                length_list.append(length)
             with open(save_path.format('train_rewards'), 'a+') as f:
-                    f.write("{} {}\n".format(epoch, reward))
+                f.write("{} {}\n".format(epoch, reward))
+                reward_list.append(reward)
             make_eval_plot(save_path.format('train_lengths'), save_path.format('eval_curve.png'))
 
         while not done and num_step < time_out:
@@ -105,6 +113,9 @@ def train(agent, env):
             state = next_state
 
         agent.callback(epoch)
+
+    save_stats(save_path, reward_list, length_list)
+
 
 
 def test(agent, env, config, num_test):
