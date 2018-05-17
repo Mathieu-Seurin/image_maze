@@ -1,6 +1,5 @@
 {
   "name": "multi_obj",
-  "seed": 42,
   "env_type":
   {
     "n_row": 5,

@@ -39,7 +39,6 @@ config, exp_identifier, save_path = load_config_and_logger(env_config_file=args.
                                                            )
 
 logging = logging.getLogger()
-set_seed(config, args)
 
 if args.device != -1:
     torch.cuda.set_device(args.device)
