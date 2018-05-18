@@ -1,10 +1,10 @@
 {
-  "name": "",
+  "name": "test",
 
   "resnet_dqn_params":{
     "film_gen_params":
       {
-
+        "test":0
       }
   }
 }

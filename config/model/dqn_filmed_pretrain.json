@@ -1,5 +1,5 @@
 {
-  "name": "dqn_filmed",
+  "name": "dqn_filmed_pretrain",
 
   "agent_type":"resnet_dqn",
   "pretrained_features" : true,
@@ -20,7 +20,7 @@
     "learning_rate" : 1e-5,
     "batch_size" : 64,
     "optimizer": "rmsprop",
-    "discount_factor": 0.99,
+    "discount_factor": 0.90,
     "n_modulated_block": 2,
     "n_regular_block": 0,
     "resblock_dropout": 0,

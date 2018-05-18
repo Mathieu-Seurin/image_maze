@@ -54,10 +54,15 @@ env = ImageFmapGridWorld(config=config["env_type"], pretrained_features=config["
 
 if config["agent_type"] == 'random':
     rl_agent = AbstractAgent(config, env.action_space())
+    discount_factor = 0.95
 elif 'dqn' in config["agent_type"]:
     rl_agent = DQNAgent(config, env.action_space(), env.state_objective_dim(), env.is_multi_objective)
+    discount_factor = config["resnet_dqn_params"]["discount_factor"]
+
 elif config["agent_type"] == 'reinforce':
     rl_agent = ReinforceAgent(config['reinforce_params'], env.action_space())
+    discount_factor = config["resnet_dqn_params"]["gamma"]
+
 else:
     assert False, "Wrong agent type : {}".format(config["agent_type"])
 
@@ -67,7 +72,6 @@ epsilon_schedule = config["train_params"]["epsilon_schedule"][0]
 epsilon_init = config["train_params"]["epsilon_schedule"][1]
 test_every = config["train_params"]["test_every"]
 n_epochs_test = config["train_params"]["n_epochs_test"]
-
 
 
 def train(agent, env):
@@ -166,7 +170,8 @@ def test(agent, env, config, num_test):
                 epoch_rewards += [reward]
                 state = next_state
 
-            rewards.append(np.sum(epoch_rewards))
+            discount_factors = np.array([discount_factor**i for i in range(len(epoch_rewards))])
+            rewards.append(np.sum(epoch_rewards*discount_factors))
             lengths.append(len(epoch_rewards))
 
             if epoch < number_epochs_to_store:
