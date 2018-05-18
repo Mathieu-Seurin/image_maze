@@ -6,12 +6,21 @@ import matplotlib.pyplot as plt
 
 
 
-def repeat_exp_parallel(base_cfg='', agent_cfg='', exp_dir='out', n_jobs=5):
+def repeat_exp_parallel(task='', modifier='', agent='', agent_mod='', exp_dir='out', n_jobs=5):
     # Use 5 seeds to run 5 exps in parallel with results in subfolders
-    exp_dir = '{}/{}/{}'.format(exp_dir, base_cfg.split('/')[-1], agent_cfg.split('/')[-1])
 
-    commands = ['python main.py -config {}.json -extension {}.json -exp_dir {}/{} -seed {}'.format(
-                base_cfg, agent_cfg, exp_dir, seed, seed) for seed in range(n_jobs)]
+    # TODO : support agent modifier
+    env_base = '../config/env_base/{}'.format(task)
+    env_ext = '../config/env_ext/{}'.format(modifier)
+    agent_base = '../config/model/{}'.format(agent)
+    # agent_ext = '../config/model/{}'.format(agent_mod)
+
+    exp_dir = '{}/{}/{}/{}'.format(exp_dir, task, modifier, agent)#, agent_mod)
+
+    commands = [("python main.py -env_config {}.json -model_config {}.json "
+                 "-env_extension {}.json -exp_dir {}/{} -seed {}").format(
+                env_base, agent_base, env_ext, exp_dir, seed, seed)
+                for seed in range(n_jobs)]
     processes = [Popen(cmd, shell=True) for cmd in commands]
     for p in processes:
         p.wait()
@@ -19,6 +28,7 @@ def repeat_exp_parallel(base_cfg='', agent_cfg='', exp_dir='out', n_jobs=5):
     return exp_dir
 
 def make_smoothed_training_curve(exp_dir='out/test_parallel'):
+    # TODO : make it great again
     x_, steps = [], []
     for subfolder in os.listdir(exp_dir):
         if subfolder in ['cfg.json', 'smoothed_training_curve.png']:
@@ -40,13 +50,10 @@ def make_smoothed_training_curve(exp_dir='out/test_parallel'):
 
 
 
-
-for n_obj in [3]:
-    for preprocessing in ['preproc']:
-        base_cfg = '../config/new_env/fix_maze_change_obj_{}_{}'.format(n_obj, preprocessing)
-        for agent in ['baseline_dqn_filmed']:
-            if preprocessing == 'preproc':
-                agent = agent + '_preproc'
+for task in ["change_maze_10_random_image"]:
+    for n_obj in [5]:
+        modifier = '{}_every_2'.format(n_obj)
+        for agent in ['reinforce_pretrain']:
             agent_cfg = '../config/{}'.format(agent)
-            dir_ = repeat_exp_parallel(base_cfg=base_cfg, agent_cfg=agent_cfg, exp_dir='out', n_jobs=5)
-            make_smoothed_training_curve(dir_)
+            dir_ = repeat_exp_parallel(task, modifier, agent, exp_dir='out', n_jobs=5)
+            # make_smoothed_training_curve(dir_)

@@ -38,7 +38,7 @@ logging = logging.getLogger()
 set_seed(config, args)
 
 verbosity = config["io"]["verbosity"]
-save_image = bool(config["io"]["num_epochs_to_store"])
+save_image = True# bool(config["io"]["num_epochs_to_store"])
 
 env = ImageFmapGridWorld(config=config["env_type"], pretrained_features=config["pretrained_features"], save_image=save_image)
 
@@ -46,12 +46,12 @@ if config["agent_type"] == 'random':
     rl_agent = AbstractAgent(config, env.action_space())
 elif 'dqn' in config["agent_type"]:
     rl_agent = DQNAgent(config, env.action_space(), env.state_objective_dim(), env.is_multi_objective)
-elif config["agent_type"] == 'reinforce':
-    rl_agent = ReinforceAgent(config['reinforce_params'], env.action_space())
+elif 'reinforce' in config["agent_type"]:
+    rl_agent = ReinforceAgent(config, env.action_space(), env.state_objective_dim(), env.is_multi_objective)
 else:
     assert False, "Wrong agent type : {}".format(config["agent_type"])
 
-
+print(config["train_params"])
 n_epochs = config["train_params"]["n_epochs"]
 epsilon_schedule = config["train_params"]["epsilon_schedule"][0]
 epsilon_init = config["train_params"]["epsilon_schedule"][1]
@@ -102,7 +102,7 @@ def train(agent, env):
 def test(agent, env, config, num_test):
 
     # Setting the model into test mode (for dropout for example)
-    agent.eval()
+    # agent.eval()
 
     lengths, rewards = [], []
     obj_type = config['env_type']['objective']['type']
@@ -155,7 +155,7 @@ def test(agent, env, config, num_test):
                 make_video(video, save_path.format('test_{}_{}_{}'.format(num_test, num_objective, epoch)))
 
     # Setting the model back into train mode (for dropout for example)
-    agent.train()
+    # agent.train()
 
     return np.mean(rewards), np.mean(lengths)
 
