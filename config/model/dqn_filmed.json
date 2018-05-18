@@ -20,10 +20,10 @@
       },
     "learning_rate" : 1e-5,
     "batch_size" : 64,
-    "optimizer": "adam",
+    "optimizer": "rmsprop",
     "discount_factor": 0.99,
     "n_modulated_block": 2,
-    "n_regular_block": 2,
+    "n_regular_block": 1,
     "resblock_dropout": 0,
     "fc_dropout": 0,
     "n_hidden" : 400,
@@ -31,6 +31,7 @@
     "head_kernel" : 1,
     "head_pool_kernel" : 2,
     "use_film" : true,
-    "tau" : 0.0001
+    "tau" : 0.001,
+    "soft_update" : true
   }
 }

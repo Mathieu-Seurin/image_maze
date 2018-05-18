@@ -5,6 +5,8 @@ import os
 
 import logging
 from logging.handlers import RotatingFileHandler
+import numpy as np
+
 
 def override_config_recurs(config, config_extension):
     try:
@@ -22,25 +24,31 @@ def override_config_recurs(config, config_extension):
 
 def load_single_config(config_file):
     with open(config_file, 'rb') as f_config:
-        config_str = f_config.read()
-        config = json.loads(config_str.decode('utf-8'))
-    return config
+        config_str = f_config.read().decode('utf-8')
+        config = json.loads(config_str)
+    return config, config_str
 
 def load_config_and_logger(env_config_file, model_config_file, exp_dir,
                            args=None,
                            env_ext_file=None,
                            model_ext_file=None):
 
+    # To have a unique id, use raw str, concatenate them and hash it
+    config_str = ''
+    config_str_env_ext = ''
+    config_str_model_ext = ''
+
     # Load env file and model
-    env_config = load_single_config(env_config_file)
-    model_config = load_single_config(model_config_file)
+    env_config, config_str_env = load_single_config(env_config_file)
+    model_config, config_str_model = load_single_config(model_config_file)
 
     # Override env and model files if specified
     if env_ext_file is not None:
-        env_ext_config = load_single_config(env_ext_file)
+        env_ext_config, config_str_env_ext = load_single_config(env_ext_file)
         env_config = override_config_recurs(env_config, env_ext_config)
+
     if model_ext_file is not None:
-        model_ext_config = load_single_config(model_ext_file)
+        model_ext_config, config_str_model_ext = load_single_config(model_ext_file)
         model_config = override_config_recurs(model_config, model_ext_config)
 
     # Merge env and model config into one dict
@@ -48,28 +56,46 @@ def load_config_and_logger(env_config_file, model_config_file, exp_dir,
     env_config.update(model_config)
     config = env_config
 
-    # Compute unique identifier based on those configs
-    config_byte = json.dumps(config).encode()
-    exp_identifier = hashlib.md5(config_byte).hexdigest()
+    # set seed
+    seed = args.seed
+    set_seed(seed)
 
-    save_path = '{}/{{}}'.format(os.path.join(exp_dir, config['env_name'], exp_identifier))
+    # Compute unique identifier based on those configs
+    config_str = config_str_env + config_str_env_ext + config_str_model + config_str_model_ext
+    exp_identifier = hashlib.md5(config_str.encode()).hexdigest()
+
+    # Save_path is the actual experiments path
+    # here, you save the experimental results, the rewards, the length etc ...
+    save_path = '{}/{{}}'.format(os.path.join(exp_dir, config['env_name'], exp_identifier, "seed"+str(seed)))
+
+    # General_save_path is the path of the model used (without the seed)
+    # This way, you store the general information such as the name, the config file etc ...
+    general_save_path = '{}/{{}}'.format(os.path.join(exp_dir, config['env_name'], exp_identifier))
+
     if not os.path.isdir(save_path.format('')):
         os.makedirs(save_path.format(''))
 
     # Write which config files were used, in case the names in config are not set
-    with open(save_path.format("config_files.txt"), "w") as f:
+    with open(general_save_path.format("config_files.txt"), "w") as f:
         f.write(env_config_file)
         if env_ext_file:
-            f.write(env_config_file+"\n")
+            f.write(" "+env_config_file+"\n")
         else:
             f.write("None")
         f.write("\n")
 
         f.write(model_config_file)
         if model_ext_file:
-            f.write(model_ext_file+"\n")
+            f.write(" "+model_ext_file+"\n")
         else:
             f.write("None")
+
+    # Create empty training file
+    open(save_path.format('train_lengths'), 'w').close()
+    open(save_path.format('train_rewards'), 'w').close()
+    open(save_path.format('train.log'), 'w').close()
+
+    open(general_save_path.format('model_name'), 'w').write(config['name'])
 
     # Create logger
     logger = create_logger(save_path.format('train.log'))
@@ -81,11 +107,9 @@ def load_config_and_logger(env_config_file, model_config_file, exp_dir,
         for key, val in vars(args).items():
             logger.info("{} : {}".format(key, val))
 
-    # set seed
-    set_seed(config)
-
     # copy config file
-    shutil.copy(env_config_file, save_path.format('config.json'))
+    with open(general_save_path.format('config.json'), 'w') as f:
+        json.dump(config, f, indent=4, separators=(',', ': '))
 
     return config, exp_identifier, save_path
 
@@ -107,20 +131,17 @@ def create_logger(save_path):
 
     return logger
 
-def set_seed(config, parsed_args=None):
+def set_seed(seed):
 
-    import numpy as np
     import torch
     import random
-    if parsed_args is None:
-        seed = config["seed"]
-    else:
-        print('Using seed {} from parser argument'.format(parsed_args.seed))
-        seed = parsed_args.seed
     if seed > -1:
+        print('Using seed {}'.format(seed))
         np.random.seed(seed)
         torch.manual_seed(seed)
         random.seed(seed)
+    else:
+        raise NotImplementedError("Cannot set negative seed")
 
 def write_seed_extensions(seed_range, out_name='../config/seed_extensions/'):
     for seed in seed_range:
@@ -128,7 +149,28 @@ def write_seed_extensions(seed_range, out_name='../config/seed_extensions/'):
             json.dump({"seed": seed}, f_extension)
 
 
+def save_stats(save_path, reward_list, length_list):
 
+    reward_list = np.array(reward_list)
+    length_list = np.array(length_list)
+
+    # Mean
+    open(save_path.format("mean_length"), "w").write(str(length_list.mean()))
+    open(save_path.format("mean_reward"), "w").write(str(reward_list.mean()))
+
+    # Last 5
+    np.save(save_path.format("last_5_length"), length_list[-5:])
+    np.save(save_path.format("last_5_reward"), reward_list[-5:])
+
+    # Last 10 std
+    open(save_path.format("last_10_std_length"), "w").write(str(length_list[-10:].std()))
+    open(save_path.format("last_10_std_reward"), "w").write(str(reward_list[-10:].std()))
+
+    # All
+    np.save(save_path.format("length"), length_list)
+    np.save(save_path.format("reward"), reward_list)
+
+    # Todo : more ?
 
 if __name__ == "__main__":
 

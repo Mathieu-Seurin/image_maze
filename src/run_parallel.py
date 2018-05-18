@@ -5,7 +5,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-
 def repeat_exp_parallel(task='', modifier='', agent='', agent_mod='', exp_dir='out', n_jobs=5):
     # Use 5 seeds to run 5 exps in parallel with results in subfolders
 

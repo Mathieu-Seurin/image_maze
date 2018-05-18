@@ -1,0 +1,8 @@
+{
+  "name": "soft_ref_model0.001",
+
+  "resnet_dqn_params":{
+    "tau" : 0.001,
+    "soft_update" : true
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "name": "film_1_not_mod",
+  "resnet_dqn_params":{
+    "n_regular_block": 1
+    }
+  }
+}
