@@ -15,9 +15,7 @@ from torch.autograd import Variable
 import torchvision
 import torch.nn.functional as F
 from torchvision import datasets, models, transforms
-
 from image_utils import channel_first_to_channel_last, channel_last_to_channel_first
-
 from rl_agent.gpu_utils import use_cuda, FloatTensor, LongTensor, ByteTensor, Tensor
 from PIL import Image
 
@@ -29,6 +27,8 @@ def plot_single_image(im):
     plt.imshow(im)
     plt.show()
 
+if not os.path.isdir('./maze_images/0'):
+    assert False, 'Please run preprocess in the src folder to generate datasets'
 
 class ImageFmapGridWorld(object):
     def __init__(self, config, pretrained_features, save_image):
@@ -47,6 +47,7 @@ class ImageFmapGridWorld(object):
 
         self.n_objectives = 1 # Default
         self.is_multi_objective = False #Default
+        self.use_normalization = config['use_normalization']
 
         self.n_row = config["n_row"]
         self.n_col = config["n_col"]
@@ -100,7 +101,7 @@ class ImageFmapGridWorld(object):
             objective_shuffler.shuffle(self.all_objectives)
             self.objectives = self.all_objectives[:self.n_objectives]
 
-            self.reward_position = (2, 2)
+            self.reward_position = (4, 3)
             self.post_process = self._change_objective
 
 
@@ -117,17 +118,20 @@ class ImageFmapGridWorld(object):
         state = dict()
         state["env_state"] = self.get_env_state()
         state["objective"] = self.get_objective_state()
-        # print(state['objective'].shape, state['env_state'].shape)
         return state
 
     def get_current_objective(self):
         x,y = self.reward_position
         return Tensor(self.grid[x,y])
 
-    def load_image_or_fmap(self, class_id, folder=None, preproc=None, raw=None, use_last_chosen_file=None):
+    def load_image_or_fmap(self, class_id=None, folder=None, preproc=None, raw=None, use_last_chosen_file=None):
         # Default is given by type of env, but can be overridden
         if preproc is None: preproc = self.preproc_state
         if folder is None: folder = self.image_folder
+
+        if class_id is None:
+            x, y = self.reward_position
+            class_id = y + x * self.n_col
 
         ext = 'jpg' if not preproc else 'tch'
 
@@ -305,7 +309,7 @@ class ImageFmapGridWorld(object):
 
         if show:
             plt.figure()
-            plt.imshow(shown_grid)
+            plt.imshow(shown_grid.astype(int))
             plt.show()
             time.sleep(1)
 
@@ -328,14 +332,13 @@ class ImageFmapGridWorld(object):
             count = 0
             for i in range(self.n_row):
                 for j in range(self.n_col):
-
-                    raw_img = self.load_image_or_fmap(folder='src/feature_map_maze/maze_images/{}', class_id=count, preproc=False, raw=True)
+                    raw_img = self.load_image_or_fmap(folder='./maze_images/{}', class_id=count, preproc=False, raw=True)
                     if self.save_image:
                         self.grid_plot[i,j] = raw_img
                         use_last_chosen_file = True
                     else:
                         use_last_chosen_file = False
-                    self.grid[i,j] = self.load_image_or_fmap(folder='src/feature_map_maze/maze_images/{}', class_id=count, use_last_chosen_file=use_last_chosen_file)
+                    self.grid[i,j] = self.load_image_or_fmap(folder='./maze_images/{}', class_id=count, use_last_chosen_file=use_last_chosen_file)
 
                     count += 1
         else:
@@ -348,9 +351,10 @@ class ImageFmapGridWorld(object):
         return 4
 
     def normalize(self, im):
-        im[:,:,0] = (im[:,:,0] - self.mean_per_channel[0]) / self.std_per_channel[0]
-        im[:,:,1] = (im[:,:,1] - self.mean_per_channel[1]) / self.std_per_channel[1]
-        im[:,:,2] = (im[:,:,2] - self.mean_per_channel[2]) / self.std_per_channel[2]
+        if self.use_normalization:
+            im[:,:,0] = (im[:,:,0] - self.mean_per_channel[0]) / self.std_per_channel[0]
+            im[:,:,1] = (im[:,:,1] - self.mean_per_channel[1]) / self.std_per_channel[1]
+            im[:,:,2] = (im[:,:,2] - self.mean_per_channel[2]) / self.std_per_channel[2]
         return im
 
     def state_objective_dim(self):
