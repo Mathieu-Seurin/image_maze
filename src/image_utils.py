@@ -74,13 +74,10 @@ def make_video(replay, filename):
     n_channels, n_w, n_h = replay[0].shape
     if not os.path.isdir(filename):
         os.makedirs(filename)
-    # writer = VideoWriter(filename + '.mp4')
     for i in range(n_frames):
-        for _ in range(5):
-            # Frame repeat for easier watching
-            plt.imshow(replay[i].transpose(1, 2, 0))
-            plt.savefig('{}/{}.png'.format(filename, i))
-            plt.close()
+        plt.imshow(replay[i].astype(int).transpose(1, 2, 0))
+        plt.savefig('{}/{}.png'.format(filename, i))
+        plt.close()
 
 def make_eval_plot(filename_in, filename_out):
     plop = np.loadtxt(filename_in)

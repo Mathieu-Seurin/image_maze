@@ -20,6 +20,7 @@ class DQN(nn.Module):
         self.n_channels_total = state_dim['concatenated'][0]
         self.input_resolution = list(state_dim['concatenated'][1:])
 
+
         conv_layers = nn.ModuleList()
         dense_layers = nn.ModuleList()
 
@@ -28,7 +29,7 @@ class DQN(nn.Module):
         self.use_batch_norm = config['use_batch_norm']
 
         self.lr = config['learning_rate']
-        self.gamma = config['gamma']
+        self.gamma = config['discount_factor']
 
         # Todo use this instead of config["concatenate_input"]
         self.is_multi_objective = is_multi_objective
@@ -64,9 +65,9 @@ class DQN(nn.Module):
         for l in self.dense_layers:
             logging.info(l)
 
-        if config['optimizer'] == 'RMSprop':
+        if config['optimizer'].lower() == 'rmsprop':
             self.optimizer = optim.RMSprop(self.parameters(), lr=self.lr)
-        elif config['optimizer'] == 'Adam':
+        elif config['optimizer'].lower() == 'adam':
             self.optimizer = optim.Adam(self.parameters(), lr=self.lr)
         else:
             assert False, 'Optimizer not recognized'
@@ -90,8 +91,8 @@ class DQN(nn.Module):
         return x
 
     def forward(self, x):
-
         x = torch.cat((x['env_state'], x['objective']), dim=1)
+        # print(x.data.cpu().numpy().shape)
         x = self._forward_conv(x)
         x = x.view(x.size(0), -1)
         return self._forward_dense(x)
@@ -99,9 +100,9 @@ class DQN(nn.Module):
 
 class SoftmaxDQN(nn.Module):
 
-    def __init__(self, config, n_out):
+    def __init__(self, config, n_action, state_dim, is_multi_objective):
         super(SoftmaxDQN, self).__init__()
-        self.output_size = n_out
+        self.output_size = n_action
 
         conv_layers = nn.ModuleList()
         dense_layers = nn.ModuleList()
@@ -162,9 +163,9 @@ class SoftmaxDQN(nn.Module):
         for l in self.dense_layers:
             logging.info(l)
 
-        if config['optimizer'] == 'RMSprop':
+        if config['optimizer'].lower() == 'rmsprop':
             self.optimizer = optim.RMSprop(self.parameters(), lr=self.lr)
-        elif config['optimizer'] == 'Adam':
+        elif config['optimizer'].lower() == 'adam':
             self.optimizer = optim.Adam(self.parameters(), lr=self.lr)
         else:
             assert False, 'Optimizer not recognized'
@@ -203,6 +204,7 @@ class SoftmaxDQN(nn.Module):
         return x
 
     def forward(self, x):
+        x = torch.cat((x['env_state'], x['objective']), dim=1)
         x = self._forward_first_block(x)
         x = self._forward_conv(x)
         x = x.view(x.size(0), -1)

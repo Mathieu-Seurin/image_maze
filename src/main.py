@@ -61,7 +61,7 @@ elif 'reinforce' in config["agent_type"]:
 else:
     assert False, "Wrong agent type : {}".format(config["agent_type"])
 
-print(config["train_params"])
+
 n_epochs = config["train_params"]["n_epochs"]
 epsilon_schedule = config["train_params"]["epsilon_schedule"][0]
 epsilon_init = config["train_params"]["epsilon_schedule"][1]
@@ -120,7 +120,7 @@ def train(agent, env):
 def test(agent, env, config, num_test):
 
     # Setting the model into test mode (for dropout for example)
-    # agent.eval()
+    agent.eval()
 
     lengths, rewards = [], []
     obj_type = config['env_type']['objective']['type']
@@ -173,7 +173,7 @@ def test(agent, env, config, num_test):
                 make_video(video, save_path.format('test_{}_{}_{}'.format(num_test, num_objective, epoch)))
 
     # Setting the model back into train mode (for dropout for example)
-    # agent.train()
+    agent.train()
 
     return np.mean(rewards), np.mean(lengths)
 

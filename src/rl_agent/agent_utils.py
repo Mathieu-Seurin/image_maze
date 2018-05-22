@@ -49,7 +49,7 @@ def check_params_changed(dict1, dict2):
         tmp1 = dict1[key]
         tmp2 = dict2[key]
         if np.max(np.abs(tmp1 - tmp2))==0:
-            logging.warning('No change in params {}'.format(key))
+            logging.debug('No change in params {}'.format(key))
 
 def compute_slow_params_update(slow_params, fast_params, tau):
 
@@ -60,8 +60,3 @@ def compute_slow_params_update(slow_params, fast_params, tau):
         slow_params_dict[module_key] += tau*(fast_params_dict[module_key] - slow_params_dict[module_key])
 
     return slow_params_dict
-
-
-
-
-

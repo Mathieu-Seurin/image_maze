@@ -77,9 +77,34 @@ except:
     pass
 
 
+def normalize_blob(blob):
+    # Take a batch of image maps, and normalize it across each channel
+
+    # First remove the means
+    means = blob.mean(dim=3).mean(dim=2).mean(dim=0)
+    means = means.unsqueeze(1).repeat(1, 7)
+    means = means.unsqueeze(2).repeat(1, 1, 7)
+    for i in range(blob.shape[0]):
+        blob[i] -= means
+
+    # Sanity check
+    assert (blob.mean(dim=3).mean(dim=2).mean(dim=0) < 0.01).all()
+
+    # Then, normalize standard deviations
+    stds = blob.permute(1, 0, 2, 3).contiguous().view(32, -1).std(dim=1)
+    print('Mean of the channel stds before normalization: {}'.format(stds.mean()))
+    stds = stds.unsqueeze(1).repeat(1, 7)
+    stds = stds.unsqueeze(2).repeat(1, 1, 7)
+    for i in range(blob.shape[0]):
+        blob[i] /= stds
+
+    # Sanity check
+
+    assert ((blob.permute(1, 0, 2, 3).contiguous().view(32, -1).std(dim=1) - 1) < 0.01).all()
+
+    return blob
 
 # First, do the maze images as they are easier
-
 (digits_im, digits_labels), (_, _) = mnist.load_data()
 (fashion_im, fashion_labels), (_, _) = fashion_mnist.load_data()
 fused_dataset = np.concatenate([digits_im, fashion_im], axis=0)
@@ -96,14 +121,14 @@ background[2, :, :] = np.tile(np.linspace(1, 0, 5), (4, 1)).T
 
 dataset_colors = [background[:, cat // 4, cat % 4] * 255 for cat in range(20)]
 
-
+blob = torch.zeros((X_train.shape[0], 32, 7, 7))
 for i in tqdm.tqdm(range(X_train.shape[0])):
     # First, get the uniform background
     tmp = np.repeat(dataset_colors[Y_train_class[i]].reshape((3,1)), 28, axis=1)
     tmp = tmp.reshape(tmp.shape + (1,))
     tmp = np.repeat(tmp, 28, axis=2)
 
-    # Then, replace non-dark regions by the images
+    # Then, replace non-dark regions by the background
     img = X_train[i]
     mask = img>10
     tmp[:, mask] = img[mask]
@@ -111,9 +136,19 @@ for i in tqdm.tqdm(range(X_train.shape[0])):
     # Dump image
     Image.fromarray(tmp.transpose((1,2,0)), 'RGB').save('maze_images/{}/{}.jpg'.format(Y_train_class[i], i))
     # Dump extracted feature maps
-    fmap = feature_extractor(Variable(FloatTensor(tmp).unsqueeze(0), volatile=True))
+    fmap = feature_extractor(Variable(FloatTensor(tmp/255.).unsqueeze(0), volatile=True))
     fmap = fmap.data.squeeze(0)
     torch.save(fmap, 'maze_images/{}/{}.tch'.format(Y_train_class[i], i))
+    blob[i] = fmap
+
+del X_train
+blob = normalize_blob(blob)
+
+
+# for i in tqdm.tqdm(range(blob.shape[0])):
+#     # print(blob[i].shape)
+#     torch.save(blob[i], 'maze_images/{}/{}_normed.tch'.format(Y_train_class[i], i))
+
 
 
 ###########################################################
@@ -138,14 +173,14 @@ background[2, :, :] = np.tile(np.linspace(1, 0, 5), (4, 1)).T
 
 dataset_colors = [background[:, cat // 4, cat % 4] * 255 for cat in range(20)]
 
-
+blob = torch.zeros((X_train.shape[0], 32, 7, 7))
 for i in tqdm.tqdm(range(X_train.shape[0])):
     # First, get the uniform background
     tmp = np.repeat(dataset_colors[Y_train_class[i]].reshape((3,1)), 28, axis=1)
     tmp = tmp.reshape(tmp.shape + (1,))
     tmp = np.repeat(tmp, 28, axis=2)
 
-    # Then, replace non-dark regions by the images
+    # Then, replace non-dark regions by the background
     img = X_train[i]
     mask = img>10
     tmp[:, mask] = img[mask]
@@ -153,10 +188,17 @@ for i in tqdm.tqdm(range(X_train.shape[0])):
     # Dump image
     Image.fromarray(tmp.transpose((1,2,0)), 'RGB').save('obj_images/with_bkg/{}/{}.jpg'.format(Y_train_class[i], i))
     # Dump extracted feature maps
-    fmap = feature_extractor(Variable(FloatTensor(tmp).unsqueeze(0), volatile=True))
+    fmap = feature_extractor(Variable(FloatTensor(tmp/255.).unsqueeze(0), volatile=True))
     fmap = fmap.data.squeeze(0)
     torch.save(fmap, 'obj_images/with_bkg/{}/{}.tch'.format(Y_train_class[i], i))
+    blob[i] = fmap
 
+del X_train
+blob = normalize_blob(blob)
+
+# for i in tqdm.tqdm(range(blob.shape[0])):
+#     # print(blob[i].shape)
+#     torch.save(blob[i], 'maze_images/{}/{}_normed.tch'.format(Y_train_class[i], i))
 
 
 ###########################################################
@@ -177,14 +219,14 @@ Y_train_class = fused_labels
 
 dataset_colors = [np.array([0,0,0]) for cat in range(20)]
 
-
+blob = torch.zeros((X_train.shape[0], 32, 7, 7))
 for i in tqdm.tqdm(range(X_train.shape[0])):
     # First, get the uniform background
     tmp = np.repeat(dataset_colors[Y_train_class[i]].reshape((3,1)), 28, axis=1)
     tmp = tmp.reshape(tmp.shape + (1,))
     tmp = np.repeat(tmp, 28, axis=2)
 
-    # Then, replace non-dark regions by the images
+    # Then, replace non-dark regions by the background
     img = X_train[i]
     mask = img>10
     tmp[:, mask] = img[mask]
@@ -192,6 +234,14 @@ for i in tqdm.tqdm(range(X_train.shape[0])):
     # Dump image
     Image.fromarray(tmp.transpose((1,2,0)), 'RGB').save('obj_images/without_bkg/{}/{}.jpg'.format(Y_train_class[i], i))
     # Dump extracted feature maps
-    fmap = feature_extractor(Variable(FloatTensor(tmp).unsqueeze(0), volatile=True))
+    fmap = feature_extractor(Variable(FloatTensor(tmp/255.).unsqueeze(0), volatile=True))
     fmap = fmap.data.squeeze(0)
     torch.save(fmap, 'obj_images/without_bkg/{}/{}.tch'.format(Y_train_class[i], i))
+    blob[i] = fmap
+
+del X_train
+blob = normalize_blob(blob)
+
+# for i in tqdm.tqdm(range(blob.shape[0])):
+#     # print(blob[i].shape)
+#     torch.save(blob[i], 'maze_images/{}/{}_normed.tch'.format(Y_train_class[i], i))
