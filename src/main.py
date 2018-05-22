@@ -177,6 +177,133 @@ def test(agent, env, config, num_test):
 
     return np.mean(rewards), np.mean(lengths)
 
+
+def test_zero_shot(agent, env, config, num_test):
+
+    # Setting the model into test mode (for dropout for example)
+    agent.eval()
+
+    lengths, rewards = [], []
+    obj_type = config['env_type']['objective']['type']
+    number_epochs_to_store = config['io']['num_epochs_to_store']
+
+    if obj_type == 'fixed':
+        # Do nothing for 'fixed' objective_type
+        return
+    elif 'image' in obj_type:
+        # For now, test only on previously seen examples
+        test_objectives = env.test_objectives
+    else:
+        assert False, 'Objective {} not supported'.format(obj_type)
+
+    for num_objective, objective in enumerate(test_objectives):
+        logging.debug('Switching objective to {}'.format(objective))
+        env.reward_position = objective
+
+        for epoch in range(n_epochs_test):
+
+            # WARNING FREEZE COUNT SO THE MAZE DOESN'T CHANGE
+            env.count_ep_in_this_maze = 0
+            env.count_current_objective = 0
+
+            state = env.reset(show=False)
+
+            done = False
+            time_out = 20
+            num_step = 0
+            epoch_rewards = []
+            video = []
+
+            if epoch < number_epochs_to_store:
+                video.append(env.render(show=False))
+
+            while not done and num_step < time_out:
+                num_step += 1
+                action = agent.forward(state, 0.)
+                next_state, reward, done, _ = env.step(action)
+
+                if epoch < number_epochs_to_store:
+                    video.append(env.render(show=False))
+
+                epoch_rewards += [reward]
+                state = next_state
+
+            rewards.append(np.sum(epoch_rewards))
+            lengths.append(len(epoch_rewards))
+
+            if epoch < number_epochs_to_store:
+                make_video(video, save_path.format('test_{}_{}_{}'.format(num_test, num_objective, epoch)))
+
+    # Setting the model back into train mode (for dropout for example)
+    agent.train()
+
+    return np.mean(rewards), np.mean(lengths)
+
+
+def test_new_obj_learning(agent, env, config, num_test):
+    # TODO : make learning curve for addition of a new objective
+    # how to choose number of train epochs?
+    # where (and how) to store the results?
+    # Careful with replay buffer
+
+
+    lengths, rewards = [], []
+    obj_type = config['env_type']['objective']['type']
+    number_epochs_to_store = config['io']['num_epochs_to_store']
+
+    if obj_type == 'fixed':
+        # Do nothing for 'fixed' objective_type
+        return
+    elif 'image' in obj_type:
+        # For now, test only on previously seen examples
+        test_objectives = env.test_objectives
+    else:
+        assert False, 'Objective {} not supported'.format(obj_type)
+
+    for num_objective, objective in enumerate(test_objectives):
+        logging.debug('Switching objective to {}'.format(objective))
+        env.reward_position = objective
+
+        for epoch in range(n_epochs_test):
+
+            # WARNING FREEZE COUNT SO THE MAZE DOESN'T CHANGE
+            env.count_ep_in_this_maze = 0
+            env.count_current_objective = 0
+
+            state = env.reset(show=False)
+
+            done = False
+            time_out = 20
+            num_step = 0
+            epoch_rewards = []
+            video = []
+
+            if epoch < number_epochs_to_store:
+                video.append(env.render(show=False))
+
+            while not done and num_step < time_out:
+                num_step += 1
+                action = agent.forward(state, 0.)
+                next_state, reward, done, _ = env.step(action)
+
+                if epoch < number_epochs_to_store:
+                    video.append(env.render(show=False))
+
+                epoch_rewards += [reward]
+                state = next_state
+
+            rewards.append(np.sum(epoch_rewards))
+            lengths.append(len(epoch_rewards))
+
+            if epoch < number_epochs_to_store:
+                make_video(video, save_path.format('test_{}_{}_{}'.format(num_test, num_objective, epoch)))
+
+    # Setting the model back into train mode (for dropout for example)
+    agent.train()
+
+    return np.mean(rewards), np.mean(lengths)
+
+
 if config['agent_type'] != 'random':
     train(rl_agent, env)
 else:

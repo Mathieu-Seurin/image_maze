@@ -50,7 +50,7 @@ def make_smoothed_training_curve(exp_dir='out/test_parallel'):
 
 
 for task in ["change_maze_10_full_black_and_white"]:
-    for n_obj in [3]:
+    for n_obj in [5, 10, 20]:
         modifier = '{}_every_1'.format(n_obj)
         for agent in ['reinforce_filmed_pretrain', 'reinforce_pretrain']:
             agent_cfg = '../config/{}'.format(agent)

@@ -100,6 +100,7 @@ class ImageFmapGridWorld(object):
             objective_shuffler = random.Random(777)
             objective_shuffler.shuffle(self.all_objectives)
             self.objectives = self.all_objectives[:self.n_objectives]
+            self.test_objectives = self.all_objectives[self.n_objectives:]
 
             self.reward_position = (4, 3)
             self.post_process = self._change_objective
