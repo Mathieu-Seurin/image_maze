@@ -68,7 +68,7 @@ epsilon_init = config["train_params"]["epsilon_schedule"][1]
 test_every = config["train_params"]["test_every"]
 n_epochs_test = config["train_params"]["n_epochs_test"]
 
-
+do_zero_shot_test = False
 
 def train(agent, env):
     if epsilon_schedule == 'linear':
@@ -103,6 +103,17 @@ def train(agent, env):
                 f.write("{} {}\n".format(epoch, reward))
                 reward_list.append(reward)
             make_eval_plot(save_path.format('train_lengths'), save_path.format('eval_curve.png'))
+            if do_zero_shot_test :
+                reward, length = test_zero_shot(agent, env, config, epoch)
+                logging.info("Epoch {} zero-shot test : averaged reward {:.2f}, average length {:.2f}".format(epoch, reward, length))
+
+                with open(save_path.format('zero_shot_lengths'), 'a+') as f:
+                    f.write("{} {}\n".format(epoch, length))
+                    length_list.append(length)
+                with open(save_path.format('zero_shot_rewards'), 'a+') as f:
+                    f.write("{} {}\n".format(epoch, reward))
+                    reward_list.append(reward)
+                make_eval_plot(save_path.format('zero_shot_lengths'), save_path.format('eval_curve.png'))
 
         while not done and num_step < time_out:
             num_step += 1
@@ -191,7 +202,7 @@ def test_zero_shot(agent, env, config, num_test):
         # Do nothing for 'fixed' objective_type
         return
     elif 'image' in obj_type:
-        # For now, test only on previously seen examples
+        # Here, test with untrained exit points
         test_objectives = env.test_objectives
     else:
         assert False, 'Objective {} not supported'.format(obj_type)
@@ -232,7 +243,7 @@ def test_zero_shot(agent, env, config, num_test):
             lengths.append(len(epoch_rewards))
 
             if epoch < number_epochs_to_store:
-                make_video(video, save_path.format('test_{}_{}_{}'.format(num_test, num_objective, epoch)))
+                make_video(video, save_path.format('test_zero_shot_{}_{}_{}'.format(num_test, num_objective, epoch)))
 
     # Setting the model back into train mode (for dropout for example)
     agent.train()
