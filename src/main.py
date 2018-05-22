@@ -48,7 +48,7 @@ else:
 
 
 verbosity = config["io"]["verbosity"]
-save_image = True# bool(config["io"]["num_epochs_to_store"])
+save_image = bool(config["io"]["num_epochs_to_store"])
 
 env = ImageFmapGridWorld(config=config["env_type"], pretrained_features=config["pretrained_features"], save_image=save_image)
 

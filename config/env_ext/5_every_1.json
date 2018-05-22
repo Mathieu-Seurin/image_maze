@@ -1,0 +1,12 @@
+{"env_type":
+  {
+    "objective" : {
+      "curriculum":
+      {
+        "n_objective" : 5,
+        "change_every" : 1
+      }
+
+    }
+  }
+}

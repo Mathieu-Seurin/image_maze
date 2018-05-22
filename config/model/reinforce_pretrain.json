@@ -1,0 +1,19 @@
+{
+  "name": "basic_reinforce",
+  "agent_type":"reinforce",
+  "pretrained_features" : true,
+  "reinforce_params": {
+    "input_resolution": [7, 7],
+    "n_channels": 192,
+    "conv_shapes": [16],
+    "dense_shapes": [],
+    "learning_rate" : 1e-3,
+    "optimizer": "rmsprop",
+    "use_batch_norm": false,
+    "discount_factor": 0.9,
+    "update_every": 200,
+    "concatenate_objective" : true,
+    "use_first_block": false
+  }
+
+}

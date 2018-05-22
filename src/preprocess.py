@@ -66,8 +66,11 @@ feature_extractor.load_state_dict(pretrained_dict)
 
 try:
     os.makedirs('maze_images')
+    os.makedirs('maze_images/with_bkg')
+    os.makedirs('maze_images/without_bkg')
     for cat in range(20):
-        os.makedirs('maze_images/{}'.format(cat))
+        os.makedirs('maze_images/with_bkg/{}'.format(cat))
+        os.makedirs('maze_images/without_bkg/{}'.format(cat))
     os.makedirs('obj_images')
     # TODO : add training without bkg? Would make env more complicated...
     for obj_type in ['with_bkg', 'without_bkg']:
@@ -134,11 +137,11 @@ for i in tqdm.tqdm(range(X_train.shape[0])):
     tmp[:, mask] = img[mask]
     tmp = tmp.astype(np.uint8)
     # Dump image
-    Image.fromarray(tmp.transpose((1,2,0)), 'RGB').save('maze_images/{}/{}.jpg'.format(Y_train_class[i], i))
+    Image.fromarray(tmp.transpose((1,2,0)), 'RGB').save('maze_images/with_bkg/{}/{}.jpg'.format(Y_train_class[i], i))
     # Dump extracted feature maps
     fmap = feature_extractor(Variable(FloatTensor(tmp/255.).unsqueeze(0), volatile=True))
     fmap = fmap.data.squeeze(0)
-    torch.save(fmap, 'maze_images/{}/{}.tch'.format(Y_train_class[i], i))
+    torch.save(fmap, 'maze_images/with_bkg/{}/{}.tch'.format(Y_train_class[i], i))
     blob[i] = fmap
 
 del X_train
@@ -149,6 +152,47 @@ blob = normalize_blob(blob)
 #     # print(blob[i].shape)
 #     torch.save(blob[i], 'maze_images/{}/{}_normed.tch'.format(Y_train_class[i], i))
 
+
+# Maze Images without background
+
+(digits_im, digits_labels), (_, _) = mnist.load_data()
+(fashion_im, fashion_labels), (_, _) = fashion_mnist.load_data()
+fused_dataset = np.concatenate([digits_im, fashion_im], axis=0)
+fused_labels = np.concatenate([digits_labels, fashion_labels + 10], axis=0)
+
+
+X_train = fused_dataset
+Y_train_class = fused_labels
+
+dataset_colors = [np.array([0,0,0]) for cat in range(20)]
+
+blob = torch.zeros((X_train.shape[0], 32, 7, 7))
+for i in tqdm.tqdm(range(X_train.shape[0])):
+    # First, get the uniform background
+    tmp = np.repeat(dataset_colors[Y_train_class[i]].reshape((3,1)), 28, axis=1)
+    tmp = tmp.reshape(tmp.shape + (1,))
+    tmp = np.repeat(tmp, 28, axis=2)
+
+    # Then, replace non-dark regions by the background
+    img = X_train[i]
+    mask = img>10
+    tmp[:, mask] = img[mask]
+    tmp = tmp.astype(np.uint8)
+    # Dump image
+    Image.fromarray(tmp.transpose((1,2,0)), 'RGB').save('maze_images/without_bkg/{}/{}.jpg'.format(Y_train_class[i], i))
+    # Dump extracted feature maps
+    fmap = feature_extractor(Variable(FloatTensor(tmp/255.).unsqueeze(0), volatile=True))
+    fmap = fmap.data.squeeze(0)
+    torch.save(fmap, 'maze_images/without_bkg/{}/{}.tch'.format(Y_train_class[i], i))
+    blob[i] = fmap
+
+del X_train
+blob = normalize_blob(blob)
+
+
+# for i in tqdm.tqdm(range(blob.shape[0])):
+#     # print(blob[i].shape)
+#     torch.save(blob[i], 'maze_images/{}/{}_normed.tch'.format(Y_train_class[i], i))
 
 
 ###########################################################

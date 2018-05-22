@@ -27,7 +27,7 @@ def plot_single_image(im):
     plt.imshow(im)
     plt.show()
 
-if not os.path.isdir('./maze_images/0'):
+if not os.path.isdir('./maze_images/with_bkg/0'):
     assert False, 'Please run preprocess in the src folder to generate datasets'
 
 class ImageFmapGridWorld(object):
@@ -319,7 +319,11 @@ class ImageFmapGridWorld(object):
     def create_grid_of_image(self, show=False):
         grid_type = self.grid_type
 
-        if grid_type == "sequential":
+        if "sequential" in grid_type:
+            if grid_type == 'sequential':
+                maze_folder = './maze_images/with_bkg/{}'
+            elif grid_type == 'sequential_no_bkg':
+                maze_folder = './maze_images/without_bkg/{}'
 
             # TODO : make this less hard-wired...
             if self.preproc_state:
@@ -332,13 +336,13 @@ class ImageFmapGridWorld(object):
             count = 0
             for i in range(self.n_row):
                 for j in range(self.n_col):
-                    raw_img = self.load_image_or_fmap(folder='./maze_images/{}', class_id=count, preproc=False, raw=True)
+                    raw_img = self.load_image_or_fmap(folder=maze_folder, class_id=count, preproc=False, raw=True)
                     if self.save_image:
                         self.grid_plot[i,j] = raw_img
                         use_last_chosen_file = True
                     else:
                         use_last_chosen_file = False
-                    self.grid[i,j] = self.load_image_or_fmap(folder='./maze_images/{}', class_id=count, use_last_chosen_file=use_last_chosen_file)
+                    self.grid[i,j] = self.load_image_or_fmap(folder=maze_folder, class_id=count, use_last_chosen_file=use_last_chosen_file)
 
                     count += 1
         else:
