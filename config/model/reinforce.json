@@ -1,5 +1,10 @@
 {
-  "name": "basic_reinforce",
+  "name": "reinforce",
+
+  "train_params": {
+    "batch_size": 64
+  },
+
   "agent_type":"reinforce",
   "pretrained_features" : false,
   "reinforce_params": {

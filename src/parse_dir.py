@@ -1,0 +1,145 @@
+import matplotlib
+matplotlib.use('Agg')
+
+import matplotlib.pyplot as plt
+import seaborn as sns
+sns.set_palette('colorblind')
+
+import os
+import argparse
+import numpy as np
+
+def plot_best(env_dir, num_taken=5):
+
+    list_five_best_id = []
+    with open(env_dir+"summary") as summary_file:
+        for line_num, line in enumerate(summary_file.readline()):
+            if line_num >= num_taken:
+                break
+
+            line_splitted = line.split(' ')
+            name = line_splitted[0]
+            model_id = line_splitted[1]
+
+            list_five_best_id.append( (name,model_id) )
+
+    all_model_reward_mean_per_ep = []
+    all_model_length_mean_per_ep = []
+
+    for model_id in list_five_best_id:
+        all_model_reward_mean_per_ep.append(np.load(env_dir + model_id + "mean_rewards_per_episode_stacked"))
+        all_model_length_mean_per_ep.append(np.load(env_dir + model_id + "mean_lengths_per_episode_stacked"))
+
+    plt.figure()
+    for reward_mean_per_ep in all_model_reward_mean_per_ep:
+        sns.tsplot(data=reward_mean_per_ep)
+
+    plt.savefig(env_dir+"model_curve_summary.png")
+    plt.close()
+
+    for length_mean_per_ep in all_model_length_mean_per_ep:
+        sns.tsplot(data=length_mean_per_ep)
+
+    plt.savefig(env_dir + "model_curve_summary.png")
+    plt.close()
+
+
+def parse_env_subfolder(out_dir):
+    results = []
+
+    for subfolder in os.listdir(out_dir):
+        result_path = out_dir + '/' + subfolder
+
+        if os.path.isfile(result_path):
+            continue
+
+        result_path += '/'
+
+        results_sub = aggregate_sub_folder_res(result_path)
+        name = results_sub['model_name']
+        mean_mean_reward = results_sub['mean_mean_reward']
+        mean_mean_length = results_sub['mean_mean_length']
+
+        results.append((name, subfolder, mean_mean_length, mean_mean_reward))
+
+    results.sort(key=lambda x:x[2])
+    print(results)
+
+    summary_str = ''
+    for name, subfolder, length, reward in results:
+        summary_str += "{} {} {} {}\n".format(name, subfolder, length, reward)
+
+    open(out_dir+"/summary", 'w').write(summary_str)
+
+def aggregate_sub_folder_res(subfolder_path):
+    # config_files.txt  config.json  eval_curve.png  last_10_std_length  last_10_std_reward  last_5_length.npy  last_5_reward.npy
+    # length.npy  mean_length  mean_reward  model_name  reward.npy  train_lengths  train.log  train_rewards
+    results = dict()
+
+    results['model_name'] = open(subfolder_path+"model_name", 'r').read()
+
+    results['mean_mean_reward'] = 0
+    results['mean_mean_length'] = 0
+
+    results['mean_lengths_per_episode'] = []
+    results['mean_rewards_per_episode'] = []
+
+    n_different_seed = 0
+
+    for file_in_subfolder in os.listdir(subfolder_path):
+        seed_dir = subfolder_path + file_in_subfolder
+
+        if os.path.isfile(seed_dir):
+            continue
+
+        seed_dir += '/'
+        n_different_seed += 1
+
+        results['mean_mean_reward'] += float(open(seed_dir+"mean_reward", 'r').read())
+        results['mean_mean_length'] += float(open(seed_dir+"mean_length", 'r').read())
+
+        results['mean_lengths_per_episode'].append(np.load(seed_dir+"length.npy"))
+        results['mean_rewards_per_episode'].append(np.load(seed_dir+"reward.npy"))
+
+    results['mean_mean_reward'] /= n_different_seed
+    results['mean_mean_length'] /= n_different_seed
+
+    results['mean_lengths_per_episode_stacked'] = np.stack(results['mean_lengths_per_episode'], axis=0)
+    results['mean_rewards_per_episode_stacked'] = np.stack(results['mean_rewards_per_episode'], axis=0)
+
+    results['mean_lengths_per_episode'] = results['mean_lengths_per_episode_stacked'].mean(axis=0)
+    results['mean_rewards_per_episode'] = results['mean_rewards_per_episode_stacked'].mean(axis=0)
+
+    results['std_lengths_per_episode'] = results['mean_lengths_per_episode_stacked'].std(axis=0)
+    results['std_rewards_per_episode'] = results['mean_rewards_per_episode_stacked'].std(axis=0)
+
+    plt.figure()
+    sns.tsplot(data=results['mean_lengths_per_episode_stacked'])
+    plt.savefig(subfolder_path+"mean_lengths_per_episode_over{}_run.png".format(n_different_seed))
+    plt.close()
+
+    plt.figure()
+    sns.tsplot(data=results['mean_rewards_per_episode_stacked'])
+    plt.savefig(subfolder_path+"mean_rewards_per_episode_over{}_run.png".format(n_different_seed))
+    plt.close()
+
+    np.save(subfolder_path+"mean_rewards_per_episode_stacked", results['mean_rewards_per_episode_stacked'])
+    np.save(subfolder_path+"mean_lengths_per_episode_stacked", results['mean_lengths_per_episode_stacked'])
+
+    return results
+
+
+if __name__ == "__main__":
+
+    parser = argparse.ArgumentParser('Log Parser arguments!')
+
+    parser.add_argument("-out_dir", type=str, help="Directory with one expe")
+    args = parser.parse_args()
+
+    out_dir = args.out_dir
+    parse_env_subfolder(out_dir=out_dir)
+    plot_best(env_dir=out_dir)
+
+
+
+
