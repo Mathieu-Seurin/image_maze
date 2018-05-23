@@ -11,7 +11,7 @@ from copy import deepcopy
 import random
 from .agent_utils import ReplayMemory, Transition, Flatten, check_params_changed, freeze_as_np_dict, compute_slow_params_update
 from .dqn_models import DQN
-
+import pickle
 from rl_agent.FiLM_agent import FilmedNet
 
 import logging
@@ -159,3 +159,19 @@ class DQNAgent(object):
         #new_params = freeze_as_np_dict(self.forward_model.state_dict())
         #check_params_changed(old_params, new_params)
         return loss.data[0]
+
+
+    def save_state(self, folder):
+        # Store the whole agent state somewhere
+        try:
+            os.makedirs(folder.format())
+        except:
+            pass
+        torch.save(self.forward_model.state_dict(), folder + '/weights.tch')
+        pickle.dump(folder.format('replay_buffer.pkl'), self.memory)
+
+    def load_state(self, folder):
+        # Retrieve the whole agent state somewhere
+        self.forward_model.load_state_dict(torch.load(folder.format('weights.tch')))
+        # Load previous buffer into memory
+        self.memory = pickle.load(folder.format('replay_buffer.pkl'))

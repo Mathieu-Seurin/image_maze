@@ -13,6 +13,7 @@ from .dqn_models import DQN, SoftmaxDQN
 import logging
 from copy import deepcopy
 from rl_agent.FiLM_agent import FilmedNet
+import os
 
 
 # GPU compatibility setup
@@ -147,11 +148,6 @@ class ReinforceAgent(object):
         state_loc['objective'] = Variable(FloatTensor(state['objective']).unsqueeze(0), volatile=True)
 
         probs = F.softmax(self.forward_model(state_loc), dim=1)
-        # probs = self.forward_model(state_loc)
-
-        # print(self.forward_model(state_loc).data.cpu().numpy())
-        # print(probs.data.cpu().numpy())
-
         m = Categorical(probs)
         action = m.sample()
         return action.data[0]
@@ -165,3 +161,19 @@ class ReinforceAgent(object):
         state_loc['objective'] = FloatTensor(state['objective']).unsqueeze(0)
         self.states_epoch.append(state_loc)
         return self.last_loss
+
+    def save_state(self, folder):
+        # Store the whole agent state somewhere
+        try:
+            os.makedirs(folder.format())
+        except:
+            pass
+        torch.save(self.forward_model.state_dict(), folder + '/weights.tch')
+
+    def load_state(self, folder):
+        # Retrieve the whole agent state somewhere
+        self.forward_model.load_state_dict(torch.load(folder.format('weights.tch')))
+        # Free the replay buffers (not really interesting to keep them)
+        self.rewards_replay = []
+        self.actions_replay = []
+        self.states_replay = []

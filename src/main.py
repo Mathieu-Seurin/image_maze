@@ -69,6 +69,7 @@ test_every = config["train_params"]["test_every"]
 n_epochs_test = config["train_params"]["n_epochs_test"]
 
 do_zero_shot_test = False
+do_new_obj_dynamics = True
 
 def train(agent, env):
     if epsilon_schedule == 'linear':
@@ -125,6 +126,8 @@ def train(agent, env):
         agent.callback(epoch)
 
     save_stats(save_path, reward_list, length_list)
+    if do_new_obj_dynamics:
+        test_new_obj_learning(agent, env, config)
 
 
 
@@ -190,6 +193,8 @@ def test(agent, env, config, num_test):
 
 
 def test_zero_shot(agent, env, config, num_test):
+    # Do it only once after fully training the model, otherwise will be
+    # ridiculously slow
 
     # Setting the model into test mode (for dropout for example)
     agent.eval()
@@ -210,11 +215,8 @@ def test_zero_shot(agent, env, config, num_test):
     for num_objective, objective in enumerate(test_objectives):
         logging.debug('Switching objective to {}'.format(objective))
         env.reward_position = objective
-
         for epoch in range(n_epochs_test):
-
-            # WARNING FREEZE COUNT SO THE MAZE DOESN'T CHANGE
-            env.count_ep_in_this_maze = 0
+            # WARNING FREEZE OBJECTIVE COUNT SO IT DOESN'T CHANGE
             env.count_current_objective = 0
 
             state = env.reset(show=False)
@@ -251,16 +253,21 @@ def test_zero_shot(agent, env, config, num_test):
     return np.mean(rewards), np.mean(lengths)
 
 
-def test_new_obj_learning(agent, env, config, num_test):
+def test_new_obj_learning(agent, env, config):
     # TODO : make learning curve for addition of a new objective
     # how to choose number of train epochs?
     # where (and how) to store the results?
     # Careful with replay buffer
 
-
     lengths, rewards = [], []
     obj_type = config['env_type']['objective']['type']
     number_epochs_to_store = config['io']['num_epochs_to_store']
+    n_epochs_new_obj = n_epochs // 4
+
+    logging.info(" ")
+    logging.info("Begin new_obj_learning evaluation")
+    logging.info("===============")
+
 
     if obj_type == 'fixed':
         # Do nothing for 'fixed' objective_type
@@ -271,48 +278,76 @@ def test_new_obj_learning(agent, env, config, num_test):
     else:
         assert False, 'Objective {} not supported'.format(obj_type)
 
+    # TODO : add this to template and both agents
+    agent.save_state(save_path.format('tmp'))
+
     for num_objective, objective in enumerate(test_objectives):
         logging.debug('Switching objective to {}'.format(objective))
         env.reward_position = objective
+        # TODO : add this to template and both agents
+        agent.load_state(save_path.format('tmp/{}'))
 
-        for epoch in range(n_epochs_test):
+        if epsilon_schedule == 'linear':
+            eps_range = np.linspace(epsilon_init, 0., n_epochs_new_obj)
+        elif epsilon_schedule=='constant':
+            eps_range = [epsilon_init for _ in range(n_epochs_new_obj)]
+        elif epsilon_schedule=='exp':
+            eps_decay = n_epochs_new_obj / 4.
+            eps_range = [epsilon_init * np.exp(-1. * i / eps_decay) for i in range(n_epochs_new_obj)]
 
-            # WARNING FREEZE COUNT SO THE MAZE DOESN'T CHANGE
-            env.count_ep_in_this_maze = 0
+        reward_list = []
+        length_list = []
+
+        for epoch in range(n_epochs_new_obj):
             env.count_current_objective = 0
-
             state = env.reset(show=False)
 
             done = False
             time_out = 20
             num_step = 0
-            epoch_rewards = []
-            video = []
-
-            if epoch < number_epochs_to_store:
-                video.append(env.render(show=False))
 
             while not done and num_step < time_out:
                 num_step += 1
-                action = agent.forward(state, 0.)
+                action = agent.forward(state, eps_range[epoch])
                 next_state, reward, done, _ = env.step(action)
-
-                if epoch < number_epochs_to_store:
-                    video.append(env.render(show=False))
-
-                epoch_rewards += [reward]
+                loss = agent.optimize(state, action, next_state, reward)
                 state = next_state
 
-            rewards.append(np.sum(epoch_rewards))
-            lengths.append(len(epoch_rewards))
+            agent.callback(epoch)
 
-            if epoch < number_epochs_to_store:
-                make_video(video, save_path.format('test_{}_{}_{}'.format(num_test, num_objective, epoch)))
+            if epoch % 100 == 0:
+                rewards = []
+                lengths = []
+                for test_round in range(10):
+                    env.count_current_objective = 0
+                    state = env.reset(show=False)
 
-    # Setting the model back into train mode (for dropout for example)
-    agent.train()
+                    done = False
+                    time_out = 20
+                    num_step = 0
+                    epoch_rewards = []
+                    video = []
 
-    return np.mean(rewards), np.mean(lengths)
+                    while not done and num_step < time_out:
+                        num_step += 1
+                        action = agent.forward(state, 0.)
+                        next_state, reward, done, _ = env.step(action)
+                        state = next_state
+                        epoch_rewards += [reward]
+                        state = next_state
+
+                    rewards.append(np.sum(epoch_rewards))
+                    lengths.append(len(epoch_rewards))
+
+                logging.info("Epoch {} new obj {} test : averaged reward {:.2f}, average length {:.2f}".format(epoch, num_objective, np.mean(rewards), np.mean(lengths)))
+                reward_list.append(np.mean(rewards))
+                length_list.append(np.mean(lengths))
+
+        save_stats(save_path.format('new_obj/' + str(num_objective) + '_{}'), reward_list, length_list)
+
+    # TODO : actually implement this...
+    # make_averaged_curve(save_path.format('new_obj/{}'))
+
 
 
 if config['agent_type'] != 'random':

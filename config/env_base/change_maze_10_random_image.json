@@ -29,6 +29,6 @@
 
   "io": {
     "verbosity": 1,
-    "num_epochs_to_store": 0
+    "num_epochs_to_store": 1
   }
 }
