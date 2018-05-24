@@ -173,7 +173,7 @@ class ReinforceAgent(object):
             pass
         torch.save(self.forward_model.state_dict(), folder + '/weights.tch')
 
-    def load_state(self, folder):
+    def load_state(self, folder, memory=None):
         # Retrieve the whole agent state somewhere
         self.forward_model.load_state_dict(torch.load(folder + '/weights.tch'))
         # Free the replay buffers (not really interesting to keep them)

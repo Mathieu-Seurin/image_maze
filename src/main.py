@@ -110,6 +110,7 @@ def train(agent, env):
                 f.write("{} {}\n".format(epoch, reward))
                 reward_list.append(reward)
             make_eval_plot(save_path.format('train_lengths'), save_path.format('eval_curve.png'))
+            make_eval_plot(save_path.format('train_rewards'), save_path.format('eval_curve_rew.png'))
             if do_zero_shot_test :
                 reward, length = test_zero_shot(agent, env, config, epoch)
                 logging.info("Epoch {} zero-shot test : averaged reward {:.2f}, average length {:.2f}".format(epoch, reward, length))
@@ -288,13 +289,15 @@ def test_new_obj_learning(agent, env, config):
     else:
         assert False, 'Objective {} not supported'.format(obj_type)
 
-    agent.save_state(save_path.format('tmp'))
+    saved_memory = agent.save_state(save_path.format('tmp'))
+    logging.info('Agent state saved')
 
     for num_objective, objective in enumerate(test_objectives):
         logging.debug('Switching objective to {}'.format(objective))
         env.reward_position = objective
         # TODO : add this to template and both agents
-        agent.load_state(save_path.format('tmp'))
+        agent.load_state(save_path.format('tmp'), memory=saved_memory)
+        logging.info('Agent state loaded')
 
         if epsilon_schedule == 'linear':
             eps_range = np.linspace(epsilon_init, 0., n_epochs_new_obj)

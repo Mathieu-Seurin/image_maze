@@ -20,7 +20,7 @@
     "learning_rate" : 1e-3,
     "optimizer": "rmsprop",
     "discount_factor": 0.9,
-    "n_modulated_block": 1,
+    "n_modulated_block": 2,
     "n_regular_block": 0,
     "resblock_dropout": 0,
     "fc_dropout": 0,
@@ -29,7 +29,7 @@
     "head_kernel" : 1,
     "head_pool_kernel" : 2,
     "use_film" : true,
-    "update_every": 200,
+    "update_every": 100,
     "concatenate_objective" : false
   }
 }

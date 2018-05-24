@@ -45,7 +45,7 @@ class DQNAgent(object):
             self.ref_model.cuda()
         self.n_action = n_action
 
-        self.memory = ReplayMemory(16384)
+        self.memory = ReplayMemory(4096)
         self.discount_factor = self.forward_model.discount_factor
 
         self.tau = config['tau']
@@ -173,10 +173,11 @@ class DQNAgent(object):
             logging.info('Not able to create folder {}'.format(folder))
 
         torch.save(self.forward_model.state_dict(), folder + '/weights.tch')
-        pickle.dump(self.memory, open(folder + '/replay_buffer.pkl', 'wb'))
+        return deepcopy(self.memory)
 
-    def load_state(self, folder):
+    def load_state(self, folder, memory=None):
         # Retrieve the whole agent state somewhere
         self.forward_model.load_state_dict(torch.load(folder + '/weights.tch'))
         # Load previous buffer into memory
-        self.memory = pickle.load(open(folder + '/replay_buffer.pkl', 'rb'))
+        if memory:
+            self.memory = memory
