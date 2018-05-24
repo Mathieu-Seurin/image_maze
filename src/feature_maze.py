@@ -27,8 +27,8 @@ def plot_single_image(im):
     plt.imshow(im)
     plt.show()
 
-if not os.path.isdir('./maze_images/with_bkg/0'):
-    assert False, 'Please run preprocess in the src folder to generate datasets'
+
+
 
 class ImageFmapGridWorld(object):
     def __init__(self, config, pretrained_features, save_image):
@@ -47,7 +47,11 @@ class ImageFmapGridWorld(object):
 
         self.n_objectives = 1 # Default
         self.is_multi_objective = False #Default
-        self.use_normalization = config['use_normalization']
+        self.use_normalization = not pretrained_features
+
+        self.image_maze_location = 'src/maze_images/'
+        if not os.path.isdir(self.image_maze_location+'/with_bkg/0'):
+            assert False, 'Please run preprocess in the src folder to generate datasets'
 
         self.n_row = config["n_row"]
         self.n_col = config["n_col"]
@@ -57,6 +61,7 @@ class ImageFmapGridWorld(object):
         self.grid = []
         self.grid_type = config["maze_type"]
         self.create_grid_of_image(show=False)
+
 
         if config["state_type"] == "current":
             self.get_env_state = self.get_current_square
@@ -81,9 +86,9 @@ class ImageFmapGridWorld(object):
                 self.get_objective_state = self.get_current_objective
             elif objective_type == "random_image":
                 # Random image with color from same class as exit
-                self.image_folder = 'obj_images/with_bkg/{}'
+                self.image_folder = self.image_maze_location+'with_bkg/{}'
             elif objective_type == "random_image_no_bkg":
-                self.image_folder = 'obj_images/without_bkg/{}'
+                self.image_folder = self.image_maze_location+'without_bkg/{}'
             elif objective_type == "text":
                 # Text description (should add this to the datasets)
                 self.get_objective_state = self._get_text_objective
@@ -322,9 +327,9 @@ class ImageFmapGridWorld(object):
 
         if "sequential" in grid_type:
             if grid_type == 'sequential':
-                maze_folder = './maze_images/with_bkg/{}'
+                maze_folder = self.image_maze_location+'with_bkg/{}'
             elif grid_type == 'sequential_no_bkg':
-                maze_folder = './maze_images/without_bkg/{}'
+                maze_folder = self.image_maze_location+'without_bkg/{}'
 
             # TODO : make this less hard-wired...
             if self.preproc_state:

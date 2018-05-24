@@ -17,6 +17,7 @@ from rl_agent.FiLM_agent import FilmedNet
 import logging
 
 from .gpu_utils import use_cuda, FloatTensor, LongTensor, ByteTensor, Tensor
+import os
 
 class DQNAgent(object):
     def __init__(self, config, n_action, state_dim, is_multi_objective):
@@ -164,14 +165,14 @@ class DQNAgent(object):
     def save_state(self, folder):
         # Store the whole agent state somewhere
         try:
-            os.makedirs(folder.format())
-        except:
+            os.makedirs(folder.format(''))
+        except FileExistsError:
             pass
-        torch.save(self.forward_model.state_dict(), folder + '/weights.tch')
-        pickle.dump(folder.format('replay_buffer.pkl'), self.memory)
+        torch.save(self.forward_model.state_dict(), folder.format('weights.tch'))
+        pickle.dump(self.memory, open(folder.format('replay_buffer.pkl'), 'wb'))
 
     def load_state(self, folder):
         # Retrieve the whole agent state somewhere
         self.forward_model.load_state_dict(torch.load(folder.format('weights.tch')))
         # Load previous buffer into memory
-        self.memory = pickle.load(folder.format('replay_buffer.pkl'))
+        self.memory = pickle.load(open(folder.format('replay_buffer.pkl'), 'rb'))

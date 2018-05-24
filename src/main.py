@@ -5,6 +5,7 @@ import argparse
 import logging
 import time
 from itertools import count
+import os
 
 from feature_maze import ImageFmapGridWorld
 
@@ -27,6 +28,15 @@ parser.add_argument("-model_extension", type=str, help="Do you want to override 
 parser.add_argument("-display", type=str, help="Display images or not")
 parser.add_argument("-seed", type=int, default=0, help="Manually set seed when launching exp")
 parser.add_argument("-device", type=int, default=-1, help="Manually set GPU")
+
+
+# Change your current wd so it's located in image_maze not src
+current_wd_full = os.getcwd()
+path, folder = os.path.split(current_wd_full)
+
+if folder != 'image_maze':
+    os.chdir('../')
+
 
 args = parser.parse_args()
 # Load_config also creates logger inside (INFO to stdout, INFO to train.log)
@@ -284,7 +294,7 @@ def test_new_obj_learning(agent, env, config):
         assert False, 'Objective {} not supported'.format(obj_type)
 
     # TODO : add this to template and both agents
-    agent.save_state(save_path.format('tmp'))
+    agent.save_state(save_path.format('tmp/{}'))
 
     for num_objective, objective in enumerate(test_objectives):
         logging.debug('Switching objective to {}'.format(objective))
