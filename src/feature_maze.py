@@ -27,7 +27,7 @@ def plot_single_image(im):
     plt.imshow(im)
     plt.show()
 
-if not os.path.isdir('./maze_images/with_bkg/0'):
+if not os.path.isdir('./train/maze_images/with_bkg/0'):
     assert False, 'Please run preprocess in the src folder to generate datasets'
 
 class ImageFmapGridWorld(object):
@@ -36,6 +36,10 @@ class ImageFmapGridWorld(object):
         self.mean_per_channel = np.array([0.5450519,   0.88200397,  0.54505189])
         self.std_per_channel = np.array([0.35243599, 0.23492979,  0.33889725])
 
+        # If in train mode, use images from train folder
+        # Has to be changed from main when going to test mode
+        self.base_folder ='train/'
+        
         # if you want to save replay or not, to save computation
         self.save_image = save_image
 
@@ -115,6 +119,8 @@ class ImageFmapGridWorld(object):
         else:
             self.get_reward = self._get_reward_no_penalty
 
+
+
     def get_state(self):
         state = dict()
         state["env_state"] = self.get_env_state()
@@ -130,6 +136,7 @@ class ImageFmapGridWorld(object):
         if preproc is None: preproc = self.preproc_state
         if folder is None: folder = self.image_folder
 
+        folder = self.base_folder + folder
         if class_id is None:
             x, y = self.reward_position
             class_id = y + x * self.n_col

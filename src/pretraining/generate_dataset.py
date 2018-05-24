@@ -17,19 +17,20 @@ try:
 except:
     pass
 
-(digits_im, digits_labels), (_, _) = mnist.load_data()
-(fashion_im, fashion_labels), (_, _) = fashion_mnist.load_data()
-fused_dataset = np.concatenate([digits_im, fashion_im], axis=0)
-fused_labels = np.concatenate([digits_labels, fashion_labels + 10], axis=0)
+(X_train_digits, y_train_digits), (X_test_digits, y_test_digits) = mnist.load_data()
+(X_train_fashion, y_train_fashion), (X_test_fashion, y_test_fashion) = fashion_mnist.load_data()
 
-print(fused_dataset.shape, fused_labels.shape)
-assert np.min(fused_dataset) == 0
-assert np.max(fused_dataset) == 255
-assert len(np.unique(fused_labels)) == 20
+X_train = np.concatenate([X_train_digits, X_train_fashion], axis=0)
+y_train = np.concatenate([y_train_digits, y_train_fashion + 10], axis=0)
+
+X_test = np.concatenate([X_test_digits, X_test_fashion], axis=0)
+y_test = np.concatenate([y_test_digits, y_test_fashion + 10], axis=0)
+
+assert np.min(X_train) == 0
+assert np.max(X_train) == 255
+assert len(np.unique(y_train)) == 20
 
 
-X_train, X_test, y_train, y_test = train_test_split(fused_dataset, fused_labels,
-                                                test_size=0.33, random_state=42)
 
 # Build X_aug to contain 3 copies of each initial image with different colors
 Y_train_color = np.random.randint(0, 255, size=(3 * X_train.shape[0], 3))
@@ -52,8 +53,8 @@ for i in tqdm.tqdm(range(3 * X_train.shape[0])):
     X_train_aug[i] = tmp
 
 def batch_normalizer(image_batch):
-    obj_mean = [0.485, 0.456, 0.406]
-    obj_std = [0.229, 0.224, 0.225]
+    obj_mean = [0., 0., 0.]
+    obj_std = [1., 1., 1.]
 
     n_samples = image_batch.shape[0]
 
@@ -65,6 +66,7 @@ def batch_normalizer(image_batch):
     return image_batch
 
 # X_train_aug = batch_normalizer(X_train_aug)
+
 np.save('X_train.npy', X_train_aug)
 np.save('Y_train_class.npy', Y_train_class)
 np.save('Y_train_color.npy', Y_train_color)

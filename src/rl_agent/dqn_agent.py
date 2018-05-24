@@ -15,6 +15,7 @@ import pickle
 from rl_agent.FiLM_agent import FilmedNet
 
 import logging
+import os
 
 from .gpu_utils import use_cuda, FloatTensor, LongTensor, ByteTensor, Tensor
 
@@ -50,6 +51,9 @@ class DQNAgent(object):
         self.tau = config['tau']
         self.batch_size = config["batch_size"]
         self.soft_update = config["soft_update"]
+
+        logging.info('Model summary :')
+        logging.info(self.forward_model.forward)
 
     def apply_config(self, config):
         pass
@@ -164,14 +168,15 @@ class DQNAgent(object):
     def save_state(self, folder):
         # Store the whole agent state somewhere
         try:
-            os.makedirs(folder.format())
+            os.makedirs(folder)
         except:
-            pass
+            logging.info('Not able to create folder {}'.format(folder))
+
         torch.save(self.forward_model.state_dict(), folder + '/weights.tch')
-        pickle.dump(folder.format('replay_buffer.pkl'), self.memory)
+        pickle.dump(self.memory, open(folder + '/replay_buffer.pkl', 'wb'))
 
     def load_state(self, folder):
         # Retrieve the whole agent state somewhere
-        self.forward_model.load_state_dict(torch.load(folder.format('weights.tch')))
+        self.forward_model.load_state_dict(torch.load(folder + '/weights.tch'))
         # Load previous buffer into memory
-        self.memory = pickle.load(folder.format('replay_buffer.pkl'))
+        self.memory = pickle.load(open(folder + '/replay_buffer.pkl', 'rb'))

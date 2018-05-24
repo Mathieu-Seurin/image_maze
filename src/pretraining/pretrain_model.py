@@ -130,18 +130,18 @@ def train_model(bi_output_model, optimizer, scheduler, num_epochs=25):
             # print(np.bincount(Y_class))
             Y_color = np.load('Y_{}_color.npy'.format(phase), mmap_mode='r')
 
-            n_to_sample = 60000 if phase == 'train' else 10000
+            n_to_sample = 120000 if phase == 'train' else 20000
             batch_size = 128
 
             for data in sampler(X, Y_class, Y_color, batch_size=batch_size, n_to_sample=n_to_sample):
                 inputs, class_labels_, color_labels_ = data
 
                 # Normalize output for faster convergence
-                color_labels = color_labels_ / 255.
+                color_labels = color_labels_ / 255. - 0.5
                 class_labels = class_labels_
 
-                # Normalize inputs for consistency
-                inputs = FloatTensor(inputs) / 255.
+                # Inputs too are in 0, 255 format
+                inputs = FloatTensor(inputs) / 255. - 0.5
                 class_labels = LongTensor(class_labels)
                 color_labels = FloatTensor(color_labels)
 
@@ -158,7 +158,7 @@ def train_model(bi_output_model, optimizer, scheduler, num_epochs=25):
                 cat_loss = cross_entropy(pred_scores, class_labels)
                 lin_loss = mse_loss(pred_colors, color_labels)
 
-                loss_seq = [cat_loss, lin_loss]
+                loss_seq = [cat_loss, 5 * lin_loss]
                 grad_seq = [loss_seq[0].data.new(1).fill_(1) for _ in range(len(loss_seq))]
 
                 # backward + optimize only if in training phase

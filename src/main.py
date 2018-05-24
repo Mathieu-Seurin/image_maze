@@ -16,6 +16,7 @@ import torch.optim as optim
 import torch
 import numpy as np
 from image_utils import make_video, make_eval_plot
+import os
 
 parser = argparse.ArgumentParser('Log Parser arguments!')
 
@@ -59,9 +60,9 @@ elif 'dqn' in config["agent_type"]:
     rl_agent = DQNAgent(config, env.action_space(), env.state_objective_dim(), env.is_multi_objective)
     discount_factor = config["resnet_dqn_params"]["discount_factor"]
 
-elif config["agent_type"] == 'reinforce':
+elif 'reinforce' in config["agent_type"]:
     rl_agent = ReinforceAgent(config, env.action_space(), env.state_objective_dim(), env.is_multi_objective)
-    discount_factor = config["resnet_dqn_params"]["gamma"]
+    discount_factor = config["resnet_reinforce_params"]["discount_factor"]
 else:
     assert False, "Wrong agent type : {}".format(config["agent_type"])
 
@@ -98,6 +99,7 @@ def train(agent, env):
         num_step = 0
 
         if epoch % test_every == 0:
+            env.base_folder = 'test/'
             reward, length = test(agent, env, config, epoch)
             logging.info("Epoch {} test : averaged reward {:.2f}, average length {:.2f}".format(epoch, reward, length))
 
@@ -119,6 +121,7 @@ def train(agent, env):
                     f.write("{} {}\n".format(epoch, reward))
                     reward_list.append(reward)
                 make_eval_plot(save_path.format('zero_shot_lengths'), save_path.format('eval_curve.png'))
+            env.base_folder = 'train/'
 
         while not done and num_step < time_out:
             num_step += 1
@@ -130,8 +133,10 @@ def train(agent, env):
         agent.callback(epoch)
 
     save_stats(save_path, reward_list, length_list)
+
     if do_new_obj_dynamics:
         test_new_obj_learning(agent, env, config)
+
 
 
 
@@ -246,7 +251,8 @@ def test_zero_shot(agent, env, config, num_test):
                 epoch_rewards += [reward]
                 state = next_state
 
-            rewards.append(np.sum(epoch_rewards))
+            discount_factors = np.array([discount_factor**i for i in range(len(epoch_rewards))])
+            rewards.append(np.sum(epoch_rewards*discount_factors))
             lengths.append(len(epoch_rewards))
 
             if epoch < number_epochs_to_store:
@@ -260,9 +266,6 @@ def test_zero_shot(agent, env, config, num_test):
 
 def test_new_obj_learning(agent, env, config):
     # TODO : make learning curve for addition of a new objective
-    # how to choose number of train epochs?
-    # where (and how) to store the results?
-    # Careful with replay buffer
 
     lengths, rewards = [], []
     obj_type = config['env_type']['objective']['type']
@@ -273,6 +276,8 @@ def test_new_obj_learning(agent, env, config):
     logging.info("Begin new_obj_learning evaluation")
     logging.info("===============")
 
+    # Use train images for the learning phase, test on test as usual
+    env.base_folder = 'train/'
 
     if obj_type == 'fixed':
         # Do nothing for 'fixed' objective_type
@@ -283,14 +288,13 @@ def test_new_obj_learning(agent, env, config):
     else:
         assert False, 'Objective {} not supported'.format(obj_type)
 
-    # TODO : add this to template and both agents
     agent.save_state(save_path.format('tmp'))
 
     for num_objective, objective in enumerate(test_objectives):
         logging.debug('Switching objective to {}'.format(objective))
         env.reward_position = objective
         # TODO : add this to template and both agents
-        agent.load_state(save_path.format('tmp/{}'))
+        agent.load_state(save_path.format('tmp'))
 
         if epsilon_schedule == 'linear':
             eps_range = np.linspace(epsilon_init, 0., n_epochs_new_obj)
@@ -321,6 +325,7 @@ def test_new_obj_learning(agent, env, config):
             agent.callback(epoch)
 
             if epoch % 100 == 0:
+                env.base_folder = 'test/'
                 rewards = []
                 lengths = []
                 for test_round in range(10):
@@ -341,13 +346,18 @@ def test_new_obj_learning(agent, env, config):
                         epoch_rewards += [reward]
                         state = next_state
 
-                    rewards.append(np.sum(epoch_rewards))
+                    discount_factors = np.array([discount_factor**i for i in range(len(epoch_rewards))])
+                    rewards.append(np.sum(epoch_rewards*discount_factors))
                     lengths.append(len(epoch_rewards))
 
                 logging.info("Epoch {} new obj {} test : averaged reward {:.2f}, average length {:.2f}".format(epoch, num_objective, np.mean(rewards), np.mean(lengths)))
                 reward_list.append(np.mean(rewards))
                 length_list.append(np.mean(lengths))
-
+                env.base_folder = 'train/'
+        try:
+            os.makedirs(save_path.format('new_obj/'))
+        except FileExistsError:
+            pass
         save_stats(save_path.format('new_obj/' + str(num_objective) + '_{}'), reward_list, length_list)
 
     # TODO : actually implement this...
