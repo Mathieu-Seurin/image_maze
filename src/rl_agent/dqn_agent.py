@@ -15,6 +15,7 @@ import pickle
 from rl_agent.FiLM_agent import FilmedNet
 
 import logging
+import os
 
 from .gpu_utils import use_cuda, FloatTensor, LongTensor, ByteTensor, Tensor
 import os
@@ -45,12 +46,15 @@ class DQNAgent(object):
             self.ref_model.cuda()
         self.n_action = n_action
 
-        self.memory = ReplayMemory(16384)
+        self.memory = ReplayMemory(4096)
         self.discount_factor = self.forward_model.discount_factor
 
         self.tau = config['tau']
         self.batch_size = config["batch_size"]
         self.soft_update = config["soft_update"]
+
+        logging.info('Model summary :')
+        logging.info(self.forward_model.forward)
 
     def apply_config(self, config):
         pass
@@ -162,17 +166,12 @@ class DQNAgent(object):
         return loss.data[0]
 
 
-    def save_state(self, folder):
+    def save_state(self):
         # Store the whole agent state somewhere
-        try:
-            os.makedirs(folder.format(''))
-        except FileExistsError:
-            pass
-        torch.save(self.forward_model.state_dict(), folder.format('weights.tch'))
-        pickle.dump(self.memory, open(folder.format('replay_buffer.pkl'), 'wb'))
+        state_dict = self.forward_model.state_dict()
+        memory = deepcopy(self.memory)
+        return state_dict, memory
 
-    def load_state(self, folder):
-        # Retrieve the whole agent state somewhere
-        self.forward_model.load_state_dict(torch.load(folder.format('weights.tch')))
-        # Load previous buffer into memory
-        self.memory = pickle.load(open(folder.format('replay_buffer.pkl'), 'rb'))
+    def load_state(self, state_dict, memory):
+        self.forward_model.load_state_dict(state_dict)
+        self.memory = deepcopy(memory)

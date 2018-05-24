@@ -45,7 +45,7 @@ class ReinforceAgent(object):
                               is_multi_objective=is_multi_objective)
 
         elif config["agent_type"] == "reinforce":
-            config = config['reinforce_params']
+            config = config['resnet_reinforce_params']
             model = DQN(config=config,
                         n_action=n_action,
                         state_dim=state_dim,
@@ -68,6 +68,9 @@ class ReinforceAgent(object):
         self.actions_epoch = []
         self.states_replay = []
         self.actions_replay = []
+
+        logging.info('Model summary :')
+        logging.info(self.forward_model.forward)
 
     def apply_config(self, config):
         pass
@@ -162,18 +165,11 @@ class ReinforceAgent(object):
         self.states_epoch.append(state_loc)
         return self.last_loss
 
-    def save_state(self, folder):
-        # Store the whole agent state somewhere
-        try:
-            os.makedirs(folder.format())
-        except:
-            pass
-        torch.save(self.forward_model.state_dict(), folder + '/weights.tch')
+    def save_state(self):
+        return self.forward_model.state_dict(), None
 
-    def load_state(self, folder):
-        # Retrieve the whole agent state somewhere
-        self.forward_model.load_state_dict(torch.load(folder.format('weights.tch')))
-        # Free the replay buffers (not really interesting to keep them)
-        self.rewards_replay = []
-        self.actions_replay = []
-        self.states_replay = []
+    def load_state(self, state_dict, memory):
+        # Don't care about memory here
+        self.forward_model.load_state_dict(state_dict)
+
+

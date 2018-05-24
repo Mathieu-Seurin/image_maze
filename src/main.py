@@ -17,6 +17,7 @@ import torch.optim as optim
 import torch
 import numpy as np
 from image_utils import make_video, make_eval_plot
+import os
 
 parser = argparse.ArgumentParser('Log Parser arguments!')
 
@@ -36,7 +37,6 @@ path, folder = os.path.split(current_wd_full)
 
 if folder != 'image_maze':
     os.chdir('../')
-
 
 args = parser.parse_args()
 # Load_config also creates logger inside (INFO to stdout, INFO to train.log)
@@ -69,9 +69,9 @@ elif 'dqn' in config["agent_type"]:
     rl_agent = DQNAgent(config, env.action_space(), env.state_objective_dim(), env.is_multi_objective)
     discount_factor = config["resnet_dqn_params"]["discount_factor"]
 
-elif config["agent_type"] == 'reinforce':
+elif 'reinforce' in config["agent_type"]:
     rl_agent = ReinforceAgent(config, env.action_space(), env.state_objective_dim(), env.is_multi_objective)
-    discount_factor = config["resnet_dqn_params"]["gamma"]
+    discount_factor = config["resnet_reinforce_params"]["discount_factor"]
 else:
     assert False, "Wrong agent type : {}".format(config["agent_type"])
 
@@ -118,6 +118,7 @@ def train(agent, env):
                 f.write("{} {}\n".format(epoch, reward))
                 reward_list.append(reward)
             make_eval_plot(save_path.format('train_lengths'), save_path.format('eval_curve.png'))
+            make_eval_plot(save_path.format('train_rewards'), save_path.format('eval_curve_rew.png'))
             if do_zero_shot_test :
                 reward, length = test_zero_shot(agent, env, config, epoch)
                 logging.info("Epoch {} zero-shot test : averaged reward {:.2f}, average length {:.2f}".format(epoch, reward, length))
@@ -140,15 +141,16 @@ def train(agent, env):
         agent.callback(epoch)
 
     save_stats(save_path, reward_list, length_list)
+
     if do_new_obj_dynamics:
         test_new_obj_learning(agent, env, config)
-
 
 
 def test(agent, env, config, num_test):
 
     # Setting the model into test mode (for dropout for example)
     agent.eval()
+    env.eval()
 
     lengths, rewards = [], []
     obj_type = config['env_type']['objective']['type']
@@ -203,6 +205,7 @@ def test(agent, env, config, num_test):
 
     # Setting the model back into train mode (for dropout for example)
     agent.train()
+    env.train()
 
     return np.mean(rewards), np.mean(lengths)
 
@@ -213,6 +216,7 @@ def test_zero_shot(agent, env, config, num_test):
 
     # Setting the model into test mode (for dropout for example)
     agent.eval()
+    env.eval()
 
     lengths, rewards = [], []
     obj_type = config['env_type']['objective']['type']
@@ -256,7 +260,8 @@ def test_zero_shot(agent, env, config, num_test):
                 epoch_rewards += [reward]
                 state = next_state
 
-            rewards.append(np.sum(epoch_rewards))
+            discount_factors = np.array([discount_factor**i for i in range(len(epoch_rewards))])
+            rewards.append(np.sum(epoch_rewards*discount_factors))
             lengths.append(len(epoch_rewards))
 
             if epoch < number_epochs_to_store:
@@ -264,15 +269,16 @@ def test_zero_shot(agent, env, config, num_test):
 
     # Setting the model back into train mode (for dropout for example)
     agent.train()
+    env.train()
 
     return np.mean(rewards), np.mean(lengths)
 
 
 def test_new_obj_learning(agent, env, config):
     # TODO : make learning curve for addition of a new objective
-    # how to choose number of train epochs?
-    # where (and how) to store the results?
-    # Careful with replay buffer
+
+    # Use train images for the learning phase, test on test as usual
+    env.train()
 
     lengths, rewards = [], []
     obj_type = config['env_type']['objective']['type']
@@ -283,7 +289,6 @@ def test_new_obj_learning(agent, env, config):
     logging.info("Begin new_obj_learning evaluation")
     logging.info("===============")
 
-
     if obj_type == 'fixed':
         # Do nothing for 'fixed' objective_type
         return
@@ -293,14 +298,15 @@ def test_new_obj_learning(agent, env, config):
     else:
         assert False, 'Objective {} not supported'.format(obj_type)
 
-    # TODO : add this to template and both agents
-    agent.save_state(save_path.format('tmp/{}'))
+    model_state_dict, saved_memory = agent.save_state()
+    logging.info('Agent state saved')
 
     for num_objective, objective in enumerate(test_objectives):
         logging.debug('Switching objective to {}'.format(objective))
         env.reward_position = objective
         # TODO : add this to template and both agents
-        agent.load_state(save_path.format('tmp/{}'))
+        agent.load_state(model_state_dict, saved_memory)
+        logging.info('Agent state loaded')
 
         if epsilon_schedule == 'linear':
             eps_range = np.linspace(epsilon_init, 0., n_epochs_new_obj)
@@ -330,7 +336,9 @@ def test_new_obj_learning(agent, env, config):
 
             agent.callback(epoch)
 
-            if epoch % 100 == 0:
+            if epoch % 20 == 0:
+                env.eval()
+
                 rewards = []
                 lengths = []
                 for test_round in range(10):
@@ -351,19 +359,23 @@ def test_new_obj_learning(agent, env, config):
                         epoch_rewards += [reward]
                         state = next_state
 
-                    rewards.append(np.sum(epoch_rewards))
+                    discount_factors = np.array([discount_factor**i for i in range(len(epoch_rewards))])
+                    rewards.append(np.sum(epoch_rewards*discount_factors))
                     lengths.append(len(epoch_rewards))
 
                 logging.info("Epoch {} new obj {} test : averaged reward {:.2f}, average length {:.2f}".format(epoch, num_objective, np.mean(rewards), np.mean(lengths)))
                 reward_list.append(np.mean(rewards))
                 length_list.append(np.mean(lengths))
 
+                env.train()
+        try:
+            os.makedirs(save_path.format('new_obj/'))
+        except FileExistsError:
+            pass
         save_stats(save_path.format('new_obj/' + str(num_objective) + '_{}'), reward_list, length_list)
 
     # TODO : actually implement this...
     # make_averaged_curve(save_path.format('new_obj/{}'))
-
-
 
 if config['agent_type'] != 'random':
     train(rl_agent, env)

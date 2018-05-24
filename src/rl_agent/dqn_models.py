@@ -59,12 +59,6 @@ class DQN(nn.Module):
             shape_after_flatten = shape
         self.dense_layers = dense_layers
 
-        logging.info('Model summary :')
-        for l in self.conv_layers:
-            logging.info(l)
-        for l in self.dense_layers:
-            logging.info(l)
-
         if config['optimizer'].lower() == 'rmsprop':
             self.optimizer = optim.RMSprop(self.parameters(), lr=self.lr)
         elif config['optimizer'].lower() == 'adam':

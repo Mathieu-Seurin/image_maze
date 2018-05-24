@@ -24,7 +24,7 @@ class AbstractAgent(object):
         # Store the whole agent state somewhere
         pass
 
-    def load_state(self, folder):
+    def load_state(self, folder, memory=None):
         # Retrieve the whole agent state somewhere
         pass
 
