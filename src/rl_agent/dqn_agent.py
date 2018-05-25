@@ -53,8 +53,8 @@ class DQNAgent(object):
         self.batch_size = config["batch_size"]
         self.soft_update = config["soft_update"]
 
-        logging.info('Model summary :')
-        logging.info(self.forward_model.forward)
+        # logging.info('Model summary :')
+        # logging.info(self.forward_model.forward)
 
     def apply_config(self, config):
         pass

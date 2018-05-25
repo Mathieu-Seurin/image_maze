@@ -90,7 +90,7 @@ while remains_command:
             device_to_use = int(expe_num % n_gpu)
 
             command = general_command.format(env_file, env_ext_file, model_config, model_ext, device_to_use, seed)
-            processes.append(Popen(command, shell=True, env=os.environ.copy(), stderr=STDOUT))
+            processes[expe_num] = Popen(command, shell=True, env=os.environ.copy(), stderr=STDOUT)
 
 for expe in processes:
     expe.wait()
