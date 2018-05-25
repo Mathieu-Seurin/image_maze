@@ -27,8 +27,12 @@ def plot_single_image(im):
     plt.imshow(im)
     plt.show()
 
+src_ext = ''
 if not os.path.isdir('./train/maze_images/with_bkg/0'):
-    assert False, 'Please run preprocess in the src folder to generate datasets'
+    # Means that was launched from outside src/
+    src_ext = 'src/'
+    if not os.path.isdir('src/train/maze_images/with_bkg/0'):
+        assert False, 'Please run preprocess in the src folder to generate datasets'
 
 class ImageFmapGridWorld(object):
     def __init__(self, config, pretrained_features, save_image):
@@ -38,8 +42,8 @@ class ImageFmapGridWorld(object):
 
         # If in train mode, use images from train folder
         # Has to be changed from main when going to test mode
-        self.base_folder ='train/'
-        
+        self.base_folder = 'train/'
+
         # if you want to save replay or not, to save computation
         self.save_image = save_image
 
@@ -136,7 +140,7 @@ class ImageFmapGridWorld(object):
         if preproc is None: preproc = self.preproc_state
         if folder is None: folder = self.image_folder
 
-        folder = self.base_folder + folder
+        folder = src_ext + self.base_folder + folder
         if class_id is None:
             x, y = self.reward_position
             class_id = y + x * self.n_col
@@ -329,9 +333,9 @@ class ImageFmapGridWorld(object):
 
         if "sequential" in grid_type:
             if grid_type == 'sequential':
-                maze_folder = './maze_images/with_bkg/{}'
+                maze_folder = 'maze_images/with_bkg/{}'
             elif grid_type == 'sequential_no_bkg':
-                maze_folder = './maze_images/without_bkg/{}'
+                maze_folder = 'maze_images/without_bkg/{}'
 
             # TODO : make this less hard-wired...
             if self.preproc_state:

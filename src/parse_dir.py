@@ -26,9 +26,14 @@ def plot_best(env_dir, num_taken=5):
     all_model_reward_mean_per_ep = []
     all_model_length_mean_per_ep = []
 
+    new_objs_reward_mean_per_ep = []
+    new_objs_length_mean_per_ep = []
+
     for model_id in list_five_best_id:
         all_model_reward_mean_per_ep.append(np.load(env_dir + model_id + "mean_rewards_per_episode_stacked"))
         all_model_length_mean_per_ep.append(np.load(env_dir + model_id + "mean_lengths_per_episode_stacked"))
+
+    # TODO : use averaged curve from aggregate_sub_folder_res
 
     plt.figure()
     for reward_mean_per_ep in all_model_reward_mean_per_ep:
@@ -84,6 +89,9 @@ def aggregate_sub_folder_res(subfolder_path):
     results['mean_lengths_per_episode'] = []
     results['mean_rewards_per_episode'] = []
 
+    results['mean_lengths_new_obj'] = []
+    results['mean_rewards_new_obj'] = []
+
     n_different_seed = 0
 
     for file_in_subfolder in os.listdir(subfolder_path):
@@ -101,17 +109,42 @@ def aggregate_sub_folder_res(subfolder_path):
         results['mean_lengths_per_episode'].append(np.load(seed_dir+"length.npy"))
         results['mean_rewards_per_episode'].append(np.load(seed_dir+"reward.npy"))
 
+        # The outer loop averages over seeds, need to first average over objs
+        new_obj_dir = seed_dir + 'new_obj/'
+        n_objs = len(np.unique([int(i.split('_')[0]) for i in os.listdir(new_obj_dir)]))
+
+        for obj in range(n_objs):
+            if obj == 0:
+                length_aggregator = np.load(new_obj_dir+"{}_length.npy".format(obj))
+                reward_aggregator = np.load(new_obj_dir+"{}_reward.npy".format(obj))
+            else:
+                length_aggregator = np.vstack((length_aggregator, np.load(new_obj_dir+"{}_length.npy".format(obj))))
+                reward_aggregator = np.vstack((reward_aggregator, np.load(new_obj_dir+"{}_reward.npy".format(obj))))
+
+        # This is averaged over objs
+        results['mean_lengths_new_obj'].append(np.mean(length_aggregator, axis=0))
+        results['mean_rewards_new_obj'].append(np.mean(reward_aggregator, axis=0))
+
     results['mean_mean_reward'] /= n_different_seed
     results['mean_mean_length'] /= n_different_seed
 
     results['mean_lengths_per_episode_stacked'] = np.stack(results['mean_lengths_per_episode'], axis=0)
     results['mean_rewards_per_episode_stacked'] = np.stack(results['mean_rewards_per_episode'], axis=0)
 
+    results['mean_lengths_new_obj_stacked'] = np.stack(results['mean_lengths_new_obj'], axis=0)
+    results['mean_rewards_new_obj_stacked'] = np.stack(results['mean_rewards_new_obj'], axis=0)
+
     results['mean_lengths_per_episode'] = results['mean_lengths_per_episode_stacked'].mean(axis=0)
     results['mean_rewards_per_episode'] = results['mean_rewards_per_episode_stacked'].mean(axis=0)
 
+    results['mean_lengths_new_obj'] = results['mean_lengths_new_obj_stacked'].mean(axis=0)
+    results['mean_rewards_new_obj'] = results['mean_rewards_new_obj_stacked'].mean(axis=0)
+
     results['std_lengths_per_episode'] = results['mean_lengths_per_episode_stacked'].std(axis=0)
     results['std_rewards_per_episode'] = results['mean_rewards_per_episode_stacked'].std(axis=0)
+
+    results['std_lengths_new_obj'] = results['mean_lengths_new_obj_stacked'].std(axis=0)
+    results['std_rewards_new_obj'] = results['mean_rewards_new_obj_stacked'].std(axis=0)
 
     plt.figure()
     sns.tsplot(data=results['mean_lengths_per_episode_stacked'])
@@ -119,12 +152,25 @@ def aggregate_sub_folder_res(subfolder_path):
     plt.close()
 
     plt.figure()
+    sns.tsplot(data=results['mean_lengths_new_obj_stacked'])
+    plt.savefig(subfolder_path+"mean_lengths_new_obj_over{}_run.png".format(n_different_seed))
+    plt.close()
+
+    plt.figure()
     sns.tsplot(data=results['mean_rewards_per_episode_stacked'])
     plt.savefig(subfolder_path+"mean_rewards_per_episode_over{}_run.png".format(n_different_seed))
     plt.close()
 
+    plt.figure()
+    sns.tsplot(data=results['mean_rewards_new_obj_stacked'])
+    plt.savefig(subfolder_path+"mean_rewards_new_obj_over{}_run.png".format(n_different_seed))
+    plt.close()
+
     np.save(subfolder_path+"mean_rewards_per_episode_stacked", results['mean_rewards_per_episode_stacked'])
     np.save(subfolder_path+"mean_lengths_per_episode_stacked", results['mean_lengths_per_episode_stacked'])
+
+    np.save(subfolder_path+"mean_rewards_new_obj_stacked", results['mean_rewards_new_obj_stacked'])
+    np.save(subfolder_path+"mean_lengths_new_obj_stacked", results['mean_lengths_new_obj_stacked'])
 
     return results
 
@@ -139,7 +185,3 @@ if __name__ == "__main__":
     out_dir = args.out_dir
     parse_env_subfolder(out_dir=out_dir)
     plot_best(env_dir=out_dir)
-
-
-
-

@@ -271,7 +271,6 @@ def test_new_obj_learning(agent, env, config):
     lengths, rewards = [], []
     obj_type = config['env_type']['objective']['type']
     number_epochs_to_store = config['io']['num_epochs_to_store']
-    n_epochs_new_obj = n_epochs // 4
 
     logging.info(" ")
     logging.info("Begin new_obj_learning evaluation")
@@ -288,6 +287,10 @@ def test_new_obj_learning(agent, env, config):
         test_objectives = env.test_objectives
     else:
         assert False, 'Objective {} not supported'.format(obj_type)
+
+
+    n_epochs_new_obj = n_epochs // len(env.objectives) * 2
+    test_every_new_obj = test_every // len(env.objectives) * 2
 
     saved_memory = agent.save_state(save_path.format('tmp'))
     logging.info('Agent state saved')
@@ -327,7 +330,7 @@ def test_new_obj_learning(agent, env, config):
 
             agent.callback(epoch)
 
-            if epoch % 100 == 0:
+            if epoch % test_every_new_obj == 0:
                 env.base_folder = 'test/'
                 rewards = []
                 lengths = []

@@ -5,8 +5,8 @@ import os
 
 from parse_dir import parse_env_subfolder
 
-env_config = "multi_obj"
-env_ext = "10obj_every2"
+env_config = "change_maze_10_random_image_no_bkg"
+env_ext = "10_every_1"
 
 verbose = True
 if verbose:
@@ -17,15 +17,14 @@ else:
 env_folder = "config/env_base/"
 env_ext_folder = "config/env_ext/"
 
-model_to_test = ['resnet_dqn_pretrain', 'dqn_filmed_pretrain']
-extension_to_test = ['soft_update0_1', 'soft_update0_01', 'soft_update0_001', 'soft_update0_0001',
-                      'hard_update0_1', 'hard_update0_01', 'hard_update0_001']
+model_to_test = ['dqn_filmed_pretrain']
+extension_to_test = ['soft_update0_0001',]
 
 model_folder = "config/model/"
 model_ext_folder = "config/model_ext/"
 
-n_gpu = 4
-capacity_per_gpu = 4
+n_gpu = 1
+capacity_per_gpu = 3
 n_seed = 5
 
 seeds = [i for i in range(n_seed)]
@@ -81,5 +80,4 @@ for expe in processes:
 print('Done running experiments')
 
 out_dir = "out/" + env_config + '_' + env_ext
-
 parse_env_subfolder(out_dir=out_dir)
