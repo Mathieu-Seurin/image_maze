@@ -5,7 +5,7 @@ import os
 
 from parse_dir import parse_env_subfolder
 
-test = True
+test = False
 verbose = True
 if verbose:
     STDOUT = subprocess.STDOUT

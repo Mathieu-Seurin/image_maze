@@ -95,7 +95,11 @@ def aggregate_sub_folder_res(subfolder_path):
         seed_dir += '/'
         n_different_seed += 1
 
-        results['mean_mean_reward'] += float(open(seed_dir+"mean_reward", 'r').read())
+        try :
+            results['mean_mean_reward'] += float(open(seed_dir+"mean_reward", 'r').read())
+        except FileNotFoundError :
+            print("Experiment failed : {}".format(seed_dir))
+            continue
         results['mean_mean_length'] += float(open(seed_dir+"mean_length", 'r').read())
 
         results['mean_lengths_per_episode'].append(np.load(seed_dir+"length.npy"))
@@ -133,7 +137,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser('Log Parser arguments!')
 
-    parser.add_argument("-out_dir", type=str, help="Directory with one expe")
+    parser.add_argument("-out_dir", type=str, default='out/multi_obj_10obj_every2' ,help="Environment result directory (ex : out/multi_obj_test10every2")
     args = parser.parse_args()
 
     out_dir = args.out_dir

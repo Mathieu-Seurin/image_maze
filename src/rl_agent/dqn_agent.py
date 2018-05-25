@@ -114,11 +114,11 @@ class DQNAgent(object):
         transitions = self.memory.sample(batch_size)
         batch = Transition(*zip(*transitions))
 
-        state_batch = Variable(torch.cat(batch.state))
-        objective_batch = Variable(torch.cat(batch.objective))
+        state_batch = Variable(torch.cat(batch.state).type(Tensor))
+        objective_batch = Variable(torch.cat(batch.objective).type(Tensor))
 
-        action_batch = Variable(torch.cat(batch.action))
-        reward_batch = Variable(torch.cat(batch.reward))
+        action_batch = Variable(torch.cat(batch.action).type(LongTensor))
+        reward_batch = Variable(torch.cat(batch.reward).type(Tensor))
 
         if len(state_batch.shape) == 3:
             state_batch = state_batch.unsqueeze(0)
@@ -131,8 +131,8 @@ class DQNAgent(object):
         state_action_values = self.forward_model(state_obj).gather(1, action_batch)
 
         non_final_mask = ByteTensor(tuple(map(lambda s: s is not None, batch.next_state)))
-        non_final_next_states = Variable(torch.cat([s for s in batch.next_state if s is not None]), volatile=True)
-        non_final_state_corresponding_objective = Variable(torch.cat([batch.objective[i] for i, s in enumerate(batch.next_state) if s is not None]), volatile=True)
+        non_final_next_states = Variable(torch.cat([s for s in batch.next_state if s is not None]).type(Tensor), volatile=True)
+        non_final_state_corresponding_objective = Variable(torch.cat([batch.objective[i] for i, s in enumerate(batch.next_state) if s is not None]).type(Tensor), volatile=True)
 
         non_final_next_states_obj = dict()
         non_final_next_states_obj['env_state'] = non_final_next_states

@@ -4,6 +4,7 @@ from collections import namedtuple
 import torch.nn as nn
 import random
 import logging
+from rl_agent.gpu_utils import Tensor
 
 
 Transition = namedtuple('Transition', ('state', 'action', 'next_state', 'reward', 'objective'))
@@ -24,6 +25,9 @@ class ReplayMemory(object):
         """Saves a transition."""
         if len(self.memory) < self.capacity:
             self.memory.append(None)
+
+        # To avoid storing everything on gpu
+        args = [arg.cpu() for arg in args]
         self.memory[self.position] = Transition(*args)
         self.position = (self.position + 1) % self.capacity
 
