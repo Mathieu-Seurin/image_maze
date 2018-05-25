@@ -18,6 +18,7 @@ import logging
 import os
 
 from .gpu_utils import use_cuda, FloatTensor, LongTensor, ByteTensor, Tensor
+import os
 
 class DQNAgent(object):
     def __init__(self, config, n_action, state_dim, is_multi_objective):
@@ -165,19 +166,12 @@ class DQNAgent(object):
         return loss.data[0]
 
 
-    def save_state(self, folder):
+    def save_state(self):
         # Store the whole agent state somewhere
-        try:
-            os.makedirs(folder)
-        except:
-            logging.info('Not able to create folder {}'.format(folder))
+        state_dict = self.forward_model.state_dict()
+        memory = deepcopy(self.memory)
+        return state_dict, memory
 
-        torch.save(self.forward_model.state_dict(), folder + '/weights.tch')
-        return deepcopy(self.memory)
-
-    def load_state(self, folder, memory=None):
-        # Retrieve the whole agent state somewhere
-        self.forward_model.load_state_dict(torch.load(folder + '/weights.tch'))
-        # Load previous buffer into memory
-        if memory:
-            self.memory = memory
+    def load_state(self, state_dict, memory):
+        self.forward_model.load_state_dict(state_dict)
+        self.memory = deepcopy(memory)

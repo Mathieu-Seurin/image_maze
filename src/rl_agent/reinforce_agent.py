@@ -165,18 +165,11 @@ class ReinforceAgent(object):
         self.states_epoch.append(state_loc)
         return self.last_loss
 
-    def save_state(self, folder):
-        # Store the whole agent state somewhere
-        try:
-            os.makedirs(folder.format())
-        except:
-            pass
-        torch.save(self.forward_model.state_dict(), folder + '/weights.tch')
+    def save_state(self):
+        return self.forward_model.state_dict(), None
 
-    def load_state(self, folder, memory=None):
-        # Retrieve the whole agent state somewhere
-        self.forward_model.load_state_dict(torch.load(folder + '/weights.tch'))
-        # Free the replay buffers (not really interesting to keep them)
-        self.rewards_replay = []
-        self.actions_replay = []
-        self.states_replay = []
+    def load_state(self, state_dict, memory):
+        # Don't care about memory here
+        self.forward_model.load_state_dict(state_dict)
+
+

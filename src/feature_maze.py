@@ -27,14 +27,17 @@ def plot_single_image(im):
     plt.imshow(im)
     plt.show()
 
-src_ext = ''
-if not os.path.isdir('./train/maze_images/with_bkg/0'):
-    # Means that was launched from outside src/
-    src_ext = 'src/'
-    if not os.path.isdir('src/train/maze_images/with_bkg/0'):
-        assert False, 'Please run preprocess in the src folder to generate datasets'
-
 class ImageFmapGridWorld(object):
+
+    @property
+    def path_to_maze_images(self):
+        return self.pretraining_location + self.base_folder + self.maze_images_subfolder
+
+    @property
+    def path_to_objectives_images(self):
+        return self.pretraining_location + self.base_folder + self.objectives_images_subfolder
+
+
     def __init__(self, config, pretrained_features, save_image):
         # Use image normalization after loading?
         self.mean_per_channel = np.array([0.5450519,   0.88200397,  0.54505189])
@@ -42,7 +45,6 @@ class ImageFmapGridWorld(object):
 
         # If in train mode, use images from train folder
         # Has to be changed from main when going to test mode
-        self.base_folder = 'train/'
 
         # if you want to save replay or not, to save computation
         self.save_image = save_image
@@ -55,7 +57,23 @@ class ImageFmapGridWorld(object):
 
         self.n_objectives = 1 # Default
         self.is_multi_objective = False #Default
-        self.use_normalization = config['use_normalization']
+        self.use_normalization = not pretrained_features
+
+        self.grid_type = config["maze_type"]
+
+        # By default, pretrained features are located in src/pretraining
+        self.pretraining_location = 'src/'
+        self.base_folder ='train/'
+        self.objectives_images_subfolder = 'obj_images/'
+        if self.grid_type == 'sequential':
+            self.maze_images_subfolder = 'maze_images/with_bkg/{}'
+        elif self.grid_type == 'sequential_no_bkg':
+            self.maze_images_subfolder = 'maze_images/without_bkg/{}'
+
+
+        if not os.path.isdir(self.path_to_maze_images.format('0')):
+            print(self.path_to_maze_images.format('0'))
+            assert False, 'Please run preprocess in the src folder to generate datasets'
 
         self.n_row = config["n_row"]
         self.n_col = config["n_col"]
@@ -63,8 +81,8 @@ class ImageFmapGridWorld(object):
         self.position = []
 
         self.grid = []
-        self.grid_type = config["maze_type"]
         self.create_grid_of_image(show=False)
+
 
         if config["state_type"] == "current":
             self.get_env_state = self.get_current_square
@@ -89,9 +107,9 @@ class ImageFmapGridWorld(object):
                 self.get_objective_state = self.get_current_objective
             elif objective_type == "random_image":
                 # Random image with color from same class as exit
-                self.image_folder = 'obj_images/with_bkg/{}'
+                self.objectives_images_subfolder += 'with_bkg/{}'
             elif objective_type == "random_image_no_bkg":
-                self.image_folder = 'obj_images/without_bkg/{}'
+                self.objectives_images_subfolder += 'without_bkg/{}'
             elif objective_type == "text":
                 # Text description (should add this to the datasets)
                 self.get_objective_state = self._get_text_objective
@@ -112,7 +130,6 @@ class ImageFmapGridWorld(object):
 
             self.reward_position = (4, 3)
             self.post_process = self._change_objective
-
 
         self.count_current_objective = 0  # To enable changing objectives every 'n' step
         self.count_ep_in_this_maze = 0  # To change maze every 'n' step
@@ -138,9 +155,8 @@ class ImageFmapGridWorld(object):
     def load_image_or_fmap(self, class_id=None, folder=None, preproc=None, raw=None, use_last_chosen_file=None):
         # Default is given by type of env, but can be overridden
         if preproc is None: preproc = self.preproc_state
-        if folder is None: folder = self.image_folder
+        if folder is None: folder = self.path_to_objectives_images
 
-        folder = src_ext + self.base_folder + folder
         if class_id is None:
             x, y = self.reward_position
             class_id = y + x * self.n_col
@@ -329,13 +345,9 @@ class ImageFmapGridWorld(object):
         return shown_grid
 
     def create_grid_of_image(self, show=False):
-        grid_type = self.grid_type
 
-        if "sequential" in grid_type:
-            if grid_type == 'sequential':
-                maze_folder = 'maze_images/with_bkg/{}'
-            elif grid_type == 'sequential_no_bkg':
-                maze_folder = 'maze_images/without_bkg/{}'
+
+        if "sequential" in self.grid_type:
 
             # TODO : make this less hard-wired...
             if self.preproc_state:
@@ -348,13 +360,13 @@ class ImageFmapGridWorld(object):
             count = 0
             for i in range(self.n_row):
                 for j in range(self.n_col):
-                    raw_img = self.load_image_or_fmap(folder=maze_folder, class_id=count, preproc=False, raw=True)
+                    raw_img = self.load_image_or_fmap(folder=self.path_to_maze_images, class_id=count, preproc=False, raw=True)
                     if self.save_image:
                         self.grid_plot[i,j] = raw_img
                         use_last_chosen_file = True
                     else:
                         use_last_chosen_file = False
-                    self.grid[i,j] = self.load_image_or_fmap(folder=maze_folder, class_id=count, use_last_chosen_file=use_last_chosen_file)
+                    self.grid[i,j] = self.load_image_or_fmap(folder=self.path_to_maze_images, class_id=count, use_last_chosen_file=use_last_chosen_file)
 
                     count += 1
         else:
@@ -362,6 +374,11 @@ class ImageFmapGridWorld(object):
             raise NotImplementedError("Only all_diff is available at the moment")
         if show :
             self.render()
+
+    def eval(self):
+        self.base_folder = 'test/'
+    def train(self):
+        self.base_folder = 'train/'
 
     def action_space(self):
         return 4
@@ -383,6 +400,8 @@ class ImageFmapGridWorld(object):
         state_objective_dim_dict['concatenated'] = (concatened_dim, state_objective_dim_dict['env_state'][1], state_objective_dim_dict['env_state'][2])
 
         return state_objective_dim_dict
+
+
 
 if __name__ == "__main__":
     config = {"n_row":5,

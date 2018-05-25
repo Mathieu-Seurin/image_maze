@@ -51,7 +51,7 @@ class VisionFilmGen(nn.Module):
             nn.ReLU(),
             nn.MaxPool2d(2))
         else:
-            self.layer1 = lambda x: x
+            self.layer2 = lambda x: x
             self.n_intermediate_channel = self.n_channel_in
 
         # Have to determine shape of output before feeding to fc
@@ -86,6 +86,7 @@ class VisionFilmGen(nn.Module):
     def forward(self, x):
         out = self.layer1(x)
         out = self.layer2(out)
+        out.contiguous()
         out = out.view(out.size(0), -1)
 
         gammas = self.hidden_layer_gamma(out)

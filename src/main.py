@@ -5,6 +5,7 @@ import argparse
 import logging
 import time
 from itertools import count
+import os
 
 from feature_maze import ImageFmapGridWorld
 
@@ -28,6 +29,14 @@ parser.add_argument("-model_extension", type=str, help="Do you want to override 
 parser.add_argument("-display", type=str, help="Display images or not")
 parser.add_argument("-seed", type=int, default=0, help="Manually set seed when launching exp")
 parser.add_argument("-device", type=int, default=-1, help="Manually set GPU")
+
+
+# Change your current wd so it's located in image_maze not src
+current_wd_full = os.getcwd()
+path, folder = os.path.split(current_wd_full)
+
+if folder != 'image_maze':
+    os.chdir('../')
 
 args = parser.parse_args()
 # Load_config also creates logger inside (INFO to stdout, INFO to train.log)
@@ -99,7 +108,6 @@ def train(agent, env):
         num_step = 0
 
         if epoch % test_every == 0:
-            env.base_folder = 'test/'
             reward, length = test(agent, env, config, epoch)
             logging.info("Epoch {} test : averaged reward {:.2f}, average length {:.2f}".format(epoch, reward, length))
 
@@ -122,7 +130,6 @@ def train(agent, env):
                     f.write("{} {}\n".format(epoch, reward))
                     reward_list.append(reward)
                 make_eval_plot(save_path.format('zero_shot_lengths'), save_path.format('eval_curve.png'))
-            env.base_folder = 'train/'
 
         while not done and num_step < time_out:
             num_step += 1
@@ -139,12 +146,11 @@ def train(agent, env):
         test_new_obj_learning(agent, env, config)
 
 
-
-
 def test(agent, env, config, num_test):
 
     # Setting the model into test mode (for dropout for example)
     agent.eval()
+    env.eval()
 
     lengths, rewards = [], []
     obj_type = config['env_type']['objective']['type']
@@ -199,6 +205,7 @@ def test(agent, env, config, num_test):
 
     # Setting the model back into train mode (for dropout for example)
     agent.train()
+    env.train()
 
     return np.mean(rewards), np.mean(lengths)
 
@@ -209,6 +216,7 @@ def test_zero_shot(agent, env, config, num_test):
 
     # Setting the model into test mode (for dropout for example)
     agent.eval()
+    env.eval()
 
     lengths, rewards = [], []
     obj_type = config['env_type']['objective']['type']
@@ -261,12 +269,16 @@ def test_zero_shot(agent, env, config, num_test):
 
     # Setting the model back into train mode (for dropout for example)
     agent.train()
+    env.train()
 
     return np.mean(rewards), np.mean(lengths)
 
 
 def test_new_obj_learning(agent, env, config):
     # TODO : make learning curve for addition of a new objective
+
+    # Use train images for the learning phase, test on test as usual
+    env.train()
 
     lengths, rewards = [], []
     obj_type = config['env_type']['objective']['type']
@@ -275,9 +287,6 @@ def test_new_obj_learning(agent, env, config):
     logging.info(" ")
     logging.info("Begin new_obj_learning evaluation")
     logging.info("===============")
-
-    # Use train images for the learning phase, test on test as usual
-    env.base_folder = 'train/'
 
     if obj_type == 'fixed':
         # Do nothing for 'fixed' objective_type
@@ -292,14 +301,14 @@ def test_new_obj_learning(agent, env, config):
     n_epochs_new_obj = n_epochs // len(env.objectives) * 2
     test_every_new_obj = test_every // len(env.objectives) * 2
 
-    saved_memory = agent.save_state(save_path.format('tmp'))
+    state_dict, memory = agent.save_state(save_path.format('tmp'))
     logging.info('Agent state saved')
 
     for num_objective, objective in enumerate(test_objectives):
         logging.debug('Switching objective to {}'.format(objective))
         env.reward_position = objective
         # TODO : add this to template and both agents
-        agent.load_state(save_path.format('tmp'), memory=saved_memory)
+        agent.load_state(model_state_dict, saved_memory)
         logging.info('Agent state loaded')
 
         if epsilon_schedule == 'linear':
@@ -359,7 +368,8 @@ def test_new_obj_learning(agent, env, config):
                 logging.info("Epoch {} new obj {} test : averaged reward {:.2f}, average length {:.2f}".format(epoch, num_objective, np.mean(rewards), np.mean(lengths)))
                 reward_list.append(np.mean(rewards))
                 length_list.append(np.mean(lengths))
-                env.base_folder = 'train/'
+
+                env.train()
         try:
             os.makedirs(save_path.format('new_obj/'))
         except FileExistsError:
@@ -368,8 +378,6 @@ def test_new_obj_learning(agent, env, config):
 
     # TODO : actually implement this...
     # make_averaged_curve(save_path.format('new_obj/{}'))
-
-
 
 if config['agent_type'] != 'random':
     train(rl_agent, env)
