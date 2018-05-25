@@ -11,8 +11,8 @@
     }
   },
   "train_params": {
-    "n_epochs" : 1500,
-    "test_every": 100,
+    "n_epochs" : 1000,
+    "test_every": 25,
     "n_epochs_test": 10
   }
 }

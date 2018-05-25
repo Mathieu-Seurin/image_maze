@@ -275,8 +275,6 @@ def test_zero_shot(agent, env, config, num_test):
 
 
 def test_new_obj_learning(agent, env, config):
-    # TODO : make learning curve for addition of a new objective
-
     # Use train images for the learning phase, test on test as usual
     env.train()
 
@@ -301,14 +299,14 @@ def test_new_obj_learning(agent, env, config):
     n_epochs_new_obj = n_epochs // len(env.objectives) * 2
     test_every_new_obj = test_every // len(env.objectives) * 2
 
-    state_dict, memory = agent.save_state(save_path.format('tmp'))
+    state_dict, saved_memory = agent.save_state()
     logging.info('Agent state saved')
 
     for num_objective, objective in enumerate(test_objectives):
         logging.debug('Switching objective to {}'.format(objective))
         env.reward_position = objective
         # TODO : add this to template and both agents
-        agent.load_state(model_state_dict, saved_memory)
+        agent.load_state(state_dict, saved_memory)
         logging.info('Agent state loaded')
 
         if epsilon_schedule == 'linear':

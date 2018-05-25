@@ -1,5 +1,6 @@
 import matplotlib
 matplotlib.use('Agg')
+import json
 
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -146,23 +147,31 @@ def aggregate_sub_folder_res(subfolder_path):
     results['std_lengths_new_obj'] = results['mean_lengths_new_obj_stacked'].std(axis=0)
     results['std_rewards_new_obj'] = results['mean_rewards_new_obj_stacked'].std(axis=0)
 
+    # For plots, determine the scale
+    test_every = json.load(open(subfolder_path + '/config.json', 'r'))["train_params"]["test_every"]
+    n_objs = json.load(open(subfolder_path + '/config.json', 'r'))["env_type"]["objective"]["curriculum"]["n_objective"]
+
+    most_objs_time = test_every * np.array(range(len(results['mean_lengths_per_episode_stacked'][0])))
+    one_obj_time = 2 * test_every / n_objs * np.array(range(len(results['mean_lengths_new_obj_stacked'][0])))
+
+    print(results['mean_lengths_per_episode_stacked'].shape, most_objs_time.shape)
     plt.figure()
-    sns.tsplot(data=results['mean_lengths_per_episode_stacked'])
+    sns.tsplot(data=results['mean_lengths_per_episode_stacked'], time=most_objs_time)
     plt.savefig(subfolder_path+"mean_lengths_per_episode_over{}_run.png".format(n_different_seed))
     plt.close()
 
     plt.figure()
-    sns.tsplot(data=results['mean_lengths_new_obj_stacked'])
+    sns.tsplot(data=results['mean_lengths_new_obj_stacked'], time=one_obj_time)
     plt.savefig(subfolder_path+"mean_lengths_new_obj_over{}_run.png".format(n_different_seed))
     plt.close()
 
     plt.figure()
-    sns.tsplot(data=results['mean_rewards_per_episode_stacked'])
+    sns.tsplot(data=results['mean_rewards_per_episode_stacked'], time=most_objs_time)
     plt.savefig(subfolder_path+"mean_rewards_per_episode_over{}_run.png".format(n_different_seed))
     plt.close()
 
     plt.figure()
-    sns.tsplot(data=results['mean_rewards_new_obj_stacked'])
+    sns.tsplot(data=results['mean_rewards_new_obj_stacked'], time=one_obj_time)
     plt.savefig(subfolder_path+"mean_rewards_new_obj_over{}_run.png".format(n_different_seed))
     plt.close()
 
