@@ -3,7 +3,7 @@ from subprocess import Popen
 from itertools import product
 import os
 
-from parse_dir import parse_env_subfolder
+from parse_dir import parse_env_subfolder, plot_best
 
 test = False
 verbose = True
@@ -19,12 +19,13 @@ model_folder = "config/model/"
 model_ext_folder = "config/model_ext/"
 
 
-model_to_test = ['resnet_dqn_pretrain', 'dqn_filmed_pretrain', 'resnet_dqn', 'dqn_filmed']
+#model_to_test = ['resnet_dqn_pretrain', 'dqn_filmed_pretrain', 'resnet_dqn', 'dqn_filmed']
+model_to_test = ['resnet_dqn_pretrain', 'dqn_filmed_pretrain',]
 extension_to_test = ['soft_update0_1', 'soft_update0_01', 'soft_update0_001', 'soft_update0_0001',
                       'hard_update0_1', 'hard_update0_01', 'hard_update0_001']
 
-env_config = ["multi_obj", "multi_obj_no_bkg", "multi_obj_class"]
-env_ext = ["10obj_every2", "20obj_every10"]
+env_config = ["multi_obj_no_bkg", "multi_obj_class"]
+env_ext = ["10obj_every2", "20obj_every2"]
 
 n_gpu = 4
 capacity_per_gpu = 4
@@ -39,7 +40,7 @@ if test:
     env_ext = ["10obj_every2", "20obj_every2"]
 
     n_gpu = 1
-    n_seed = 1
+    n_seed = 10
 
 
 seeds = [i for i in range(n_seed)]
@@ -99,3 +100,4 @@ print('Done running experiments')
 for env_str, env_ext_str in product(env_config, env_ext):
     out_dir = "out/" + env_str + '_' + env_ext_str
     parse_env_subfolder(out_dir=out_dir)
+    plot_best(env_dir=out_dir)

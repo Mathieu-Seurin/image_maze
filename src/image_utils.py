@@ -1,5 +1,4 @@
 import numpy as np
-from skvideo.io import FFmpegWriter as VideoWriter
 import matplotlib.pyplot as plt
 import os
 

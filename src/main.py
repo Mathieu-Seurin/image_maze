@@ -5,17 +5,10 @@ import argparse
 import logging
 import time
 from itertools import count
-import os
-
-from feature_maze import ImageFmapGridWorld
-
-from rl_agent.basic_agent import AbstractAgent
-from rl_agent.dqn_agent import DQNAgent
-from rl_agent.reinforce_agent import ReinforceAgent
-from config import load_config_and_logger, set_seed, save_stats
-import torch.optim as optim
 import torch
+
 import numpy as np
+from config import load_config_and_logger, set_seed, save_stats
 from image_utils import make_video, make_eval_plot
 import os
 
@@ -30,6 +23,7 @@ parser.add_argument("-display", type=str, help="Display images or not")
 parser.add_argument("-seed", type=int, default=0, help="Manually set seed when launching exp")
 parser.add_argument("-device", type=int, default=-1, help="Manually set GPU")
 
+args = parser.parse_args()
 
 # Change your current wd so it's located in image_maze not src
 current_wd_full = os.getcwd()
@@ -38,7 +32,6 @@ path, folder = os.path.split(current_wd_full)
 if folder != 'image_maze':
     os.chdir('../')
 
-args = parser.parse_args()
 # Load_config also creates logger inside (INFO to stdout, INFO to train.log)
 config, exp_identifier, save_path = load_config_and_logger(env_config_file=args.env_config,
                                                            model_config_file=args.model_config,
@@ -55,6 +48,12 @@ if args.device != -1:
     logging.info("Using device {}".format(torch.cuda.current_device()))
 else:
     logging.info("Using default device from env")
+
+from feature_maze import ImageFmapGridWorld
+from rl_agent.basic_agent import AbstractAgent
+from rl_agent.dqn_agent import DQNAgent
+from rl_agent.reinforce_agent import ReinforceAgent
+
 
 
 verbosity = config["io"]["verbosity"]

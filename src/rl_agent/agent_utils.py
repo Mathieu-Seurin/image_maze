@@ -4,8 +4,6 @@ from collections import namedtuple
 import torch.nn as nn
 import random
 import logging
-from rl_agent.gpu_utils import Tensor
-
 
 Transition = namedtuple('Transition', ('state', 'action', 'next_state', 'reward', 'objective'))
 

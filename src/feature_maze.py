@@ -1,4 +1,3 @@
-from keras.datasets import mnist, fashion_mnist
 import numpy as np
 from copy import copy
 import random

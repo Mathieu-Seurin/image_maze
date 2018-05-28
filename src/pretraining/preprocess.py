@@ -122,7 +122,7 @@ def generate_one_folder(X=None, y=None, dataset_colors=None, folder=None):
         # Normalize, extract feature maps, dump them
         tmp = tmp / 255. - 0.5
         fmap = feature_extractor(Variable(FloatTensor(tmp).unsqueeze(0), volatile=True))
-        fmap = fmap.data.squeeze(0)
+        fmap = fmap.data.squeeze(0).cpu()
         torch.save(fmap, folder + '/{}/{}.tch'.format(y[i], i))
         blob[i] = fmap
 

@@ -34,29 +34,47 @@ class VisionFilmGen(nn.Module):
         self.dropout = config['dropout']
 
         # Convolution for objective as an image
+        self.conv_layers = nn.ModuleList()
         if self.intermediate_kernel_size > 0:
-            self.layer1 = nn.Sequential(
-                nn.Conv2d(self.n_channel_in, self.n_intermediate_channel, kernel_size=self.intermediate_kernel_size, padding=2),
-                nn.BatchNorm2d(self.n_intermediate_channel),
-                nn.ReLU(),
-                nn.MaxPool2d(2))
+
+            self.conv_layers.append(nn.Conv2d(self.n_channel_in, self.n_intermediate_channel, kernel_size=self.intermediate_kernel_size, padding=2))
+            self.conv_layers.append(nn.BatchNorm2d(self.n_intermediate_channel))
+            self.conv_layers.append(nn.ReLU())
+            self.conv_layers.append(nn.MaxPool2d(2))
+
+            print("DEVICE HERE", torch.cuda.current_device())
+
+
+            # self.layer1 = nn.Sequential(
+            #     nn.Conv2d(self.n_channel_in, self.n_intermediate_channel, kernel_size=self.intermediate_kernel_size, padding=2),
+            #     nn.BatchNorm2d(self.n_intermediate_channel),
+            #     nn.ReLU(),
+            #     nn.MaxPool2d(2))
         else:
-            self.layer1 = lambda x:x
+            # self.layer1 = lambda x:x
             self.n_intermediate_channel = self.n_channel_in
 
         if self.final_kernel_size > 0:
-            self.layer2 = nn.Sequential(
-            nn.Conv2d(self.n_intermediate_channel, self.n_final_channel, kernel_size=self.final_kernel_size, padding=2),
-            nn.BatchNorm2d(self.n_final_channel),
-            nn.ReLU(),
-            nn.MaxPool2d(2))
+
+            self.conv_layers.append(nn.Conv2d(self.n_intermediate_channel, self.n_final_channel, kernel_size=self.final_kernel_size, padding=2))
+            self.conv_layers.append(nn.BatchNorm2d(self.n_final_channel))
+            self.conv_layers.append(nn.ReLU())
+            self.conv_layers.append(nn.MaxPool2d(2))
+
+            # self.layer2 = nn.Sequential(
+            # nn.Conv2d(self.n_intermediate_channel, self.n_final_channel, kernel_size=self.final_kernel_size, padding=2),
+            # nn.BatchNorm2d(self.n_final_channel),
+            # nn.ReLU(),
+            # nn.MaxPool2d(2))
         else:
-            self.layer2 = lambda x: x
+            # self.layer2 = lambda x: x
             self.n_intermediate_channel = self.n_channel_in
 
         # Have to determine shape of output before feeding to fc
         tmp = Variable(torch.zeros(1, *self.input_shape))
-        conv_out_shape = self.layer2(self.layer1(tmp)).shape
+        for module in self.conv_layers :
+            tmp = module(tmp)
+        conv_out_shape = tmp.shape
         n_features_after_conv = conv_out_shape[1] * conv_out_shape[2] * conv_out_shape[3]
 
         # Add hidden layer (and dropout) before computing gammas and betas
@@ -84,8 +102,13 @@ class VisionFilmGen(nn.Module):
         self.fc_betas = nn.Linear(self.n_hidden_beta, self.n_features_to_modulate)
 
     def forward(self, x):
-        out = self.layer1(x)
-        out = self.layer2(out)
+        # out = self.layer1(x)
+        # out = self.layer2(out)
+
+        out = x
+        for module in self.conv_layers :
+            out = module(out)
+
         out.contiguous()
         out = out.view(out.size(0), -1)
 

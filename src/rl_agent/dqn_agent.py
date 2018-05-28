@@ -18,6 +18,7 @@ import logging
 import os
 
 from .gpu_utils import use_cuda, FloatTensor, LongTensor, ByteTensor, Tensor
+
 import os
 
 class DQNAgent(object):
