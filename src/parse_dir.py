@@ -9,6 +9,9 @@ import os
 import argparse
 import numpy as np
 
+def plot_selected(env_dir, selected_list):
+    pass
+
 def plot_best(env_dir, num_taken=5):
 
     list_five_best_id = []
@@ -38,15 +41,14 @@ def plot_best(env_dir, num_taken=5):
     for reward_mean_per_ep in all_model_reward_mean_per_ep:
         sns.tsplot(data=reward_mean_per_ep)
 
-    plt.savefig(env_dir+"model_curve_reward_summary.png")
+    plt.savefig(os.path.join(env_dir,"model_curve_reward_summary.png"))
     plt.close()
 
     for length_mean_per_ep in all_model_length_mean_per_ep:
         sns.tsplot(data=length_mean_per_ep)
 
-    plt.savefig(env_dir + "model_curve_length_summary.png")
+    plt.savefig(os.path.join(env_dir, "model_curve_length_summary.png"))
     plt.close()
-
 
 def parse_env_subfolder(out_dir):
     results = []
@@ -144,6 +146,9 @@ def aggregate_sub_folder_res(subfolder_path):
     np.save(subfolder_path+"mean_lengths_per_episode_stacked", results['mean_lengths_per_episode_stacked'])
 
     return results
+
+
+
 
 
 if __name__ == "__main__":
