@@ -6,6 +6,7 @@ import os
 from parse_dir import parse_env_subfolder, plot_best
 
 test = False
+
 verbose = True
 if verbose:
     STDOUT = subprocess.STDOUT
@@ -27,17 +28,17 @@ extension_to_test = ['soft_update0_1', 'soft_update0_01', 'soft_update0_001', 's
 env_config = ["multi_obj_no_bkg", "multi_obj_class"]
 env_ext = ["10obj_every2", "20obj_every2"]
 
-n_gpu = 4
-capacity_per_gpu = 4
+n_gpu = 1
+capacity_per_gpu = 3
 n_seed = 5
 
 if test:
 
-    model_to_test = ['dqn_filmed']
+    model_to_test = ['dqn_filmed_pretrain']
     extension_to_test = ['soft_update0_01']
 
-    env_config = ["multi_obj_test"]
-    env_ext = ["10obj_every2", "20obj_every2"]
+    env_config = ["change_maze_10_random_image_no_bkg"]
+    env_ext = ["10_every_1"]
 
     n_gpu = 1
     n_seed = 10

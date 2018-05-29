@@ -274,15 +274,12 @@ def test_zero_shot(agent, env, config, num_test):
 
 
 def test_new_obj_learning(agent, env, config):
-    # TODO : make learning curve for addition of a new objective
-
     # Use train images for the learning phase, test on test as usual
     env.train()
 
     lengths, rewards = [], []
     obj_type = config['env_type']['objective']['type']
     number_epochs_to_store = config['io']['num_epochs_to_store']
-    n_epochs_new_obj = n_epochs // 4
 
     logging.info(" ")
     logging.info("Begin new_obj_learning evaluation")
@@ -297,14 +294,18 @@ def test_new_obj_learning(agent, env, config):
     else:
         assert False, 'Objective {} not supported'.format(obj_type)
 
-    model_state_dict, saved_memory = agent.save_state()
+
+    n_epochs_new_obj = n_epochs // len(env.objectives) * 2
+    test_every_new_obj = test_every // len(env.objectives) * 2
+
+    state_dict, saved_memory = agent.save_state()
     logging.info('Agent state saved')
 
     for num_objective, objective in enumerate(test_objectives):
         logging.debug('Switching objective to {}'.format(objective))
         env.reward_position = objective
         # TODO : add this to template and both agents
-        agent.load_state(model_state_dict, saved_memory)
+        agent.load_state(state_dict, saved_memory)
         logging.info('Agent state loaded')
 
         if epsilon_schedule == 'linear':
@@ -335,9 +336,8 @@ def test_new_obj_learning(agent, env, config):
 
             agent.callback(epoch)
 
-            if epoch % 20 == 0:
-                env.eval()
-
+            if epoch % test_every_new_obj == 0:
+                env.base_folder = 'test/'
                 rewards = []
                 lengths = []
                 for test_round in range(10):

@@ -61,7 +61,7 @@ class ImageFmapGridWorld(object):
         self.grid_type = config["maze_type"]
 
         # By default, pretrained features are located in src/pretraining
-        self.pretraining_location = 'src/pretraining/'
+        self.pretraining_location = 'src/'
         self.base_folder ='train/'
         self.objectives_images_subfolder = 'obj_images/'
         if self.grid_type == 'sequential':
@@ -71,6 +71,7 @@ class ImageFmapGridWorld(object):
 
 
         if not os.path.isdir(self.path_to_maze_images.format('0')):
+            print(self.path_to_maze_images.format('0'))
             assert False, 'Please run preprocess in the src folder to generate datasets'
 
         self.n_row = config["n_row"]
