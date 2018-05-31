@@ -20,6 +20,7 @@ def plot_best(env_dir, num_taken=5):
 
             line_splitted = line.split(' ')
             name = line_splitted[0]
+            print(line_splitted)
             model_id = line_splitted[1]
 
             list_five_best_id.append( (name,model_id) )
@@ -52,6 +53,7 @@ def plot_best(env_dir, num_taken=5):
 
 def parse_env_subfolder(out_dir):
     results = []
+    results_new_obj = []
 
     for subfolder in os.listdir(out_dir):
         result_path = out_dir + '/' + subfolder
@@ -63,25 +65,41 @@ def parse_env_subfolder(out_dir):
 
         results_sub = aggregate_sub_folder_res(result_path)
         name = results_sub['model_name']
+
+        # Summary for main experiment
         mean_mean_reward = results_sub['mean_mean_reward']
         mean_mean_length = results_sub['mean_mean_length']
+        time_to_success = results_sub['time_to_success']
+        results.append((name, subfolder, mean_mean_length, mean_mean_reward, time_to_success))
 
-        results.append((name, subfolder, mean_mean_length, mean_mean_reward))
+        # Summary for new_obj
+        mean_mean_reward_new_obj = results_sub['mean_mean_reward_new_obj']
+        mean_mean_length_new_obj = results_sub['mean_mean_length_new_obj']
+        time_to_success_new_obj = results_sub['time_to_success_new_obj']
+        results_new_obj.append((name, subfolder, mean_mean_length_new_obj, mean_mean_reward_new_obj, time_to_success_new_obj))
+
+
 
     results.sort(key=lambda x:x[2])
+    results_new_obj.sort(key=lambda x:x[2])
     print(results)
+    print(results_new_obj)
 
     summary_str = ''
-    for name, subfolder, length, reward in results:
-        summary_str += "{} {} {} {}\n".format(name, subfolder, length, reward)
+    for name, subfolder, length, reward, time in results:
+        summary_str += "{} {} {} {} {}\n".format(name, subfolder, length, reward, time)
+
+    summary_str_new_obj = ''
+    for name, subfolder, length, reward, time in results_new_obj:
+        summary_str_new_obj += "{} {} {} {} {}\n".format(name, subfolder, length, reward, time)
 
     open(out_dir+"/summary", 'w').write(summary_str)
+    open(out_dir+"/summary_new_obj", 'w').write(summary_str_new_obj)
 
 def aggregate_sub_folder_res(subfolder_path):
     # config_files.txt  config.json  eval_curve.png  last_10_std_length  last_10_std_reward  last_5_length.npy  last_5_reward.npy
     # length.npy  mean_length  mean_reward  model_name  reward.npy  train_lengths  train.log  train_rewards
     results = dict()
-
     results['model_name'] = open(subfolder_path+"model_name", 'r').read()
 
     results['mean_mean_reward'] = 0
@@ -141,18 +159,34 @@ def aggregate_sub_folder_res(subfolder_path):
     results['mean_lengths_new_obj'] = results['mean_lengths_new_obj_stacked'].mean(axis=0)
     results['mean_rewards_new_obj'] = results['mean_rewards_new_obj_stacked'].mean(axis=0)
 
+    results['mean_mean_reward_new_obj'] = results['mean_lengths_new_obj'].mean()
+    results['mean_mean_length_new_obj'] = results['mean_rewards_new_obj'].mean()
+
     results['std_lengths_per_episode'] = results['mean_lengths_per_episode_stacked'].std(axis=0)
     results['std_rewards_per_episode'] = results['mean_rewards_per_episode_stacked'].std(axis=0)
 
     results['std_lengths_new_obj'] = results['mean_lengths_new_obj_stacked'].std(axis=0)
     results['std_rewards_new_obj'] = results['mean_rewards_new_obj_stacked'].std(axis=0)
 
-    # For plots, determine the scale
+    # Add time to reach success_threshold as part of the results
+    def time_to_success(averaged_curve):
+        success_threshold = 0.6
+        tmp = np.where(averaged_curve > success_threshold)
+        if tmp[0].shape == (0,):
+            return len(averaged_curve)
+        else:
+            return tmp[0][0]
+
+
+    # For plots and times to success, determine the scale
     test_every = json.load(open(subfolder_path + '/config.json', 'r'))["train_params"]["test_every"]
     n_objs = json.load(open(subfolder_path + '/config.json', 'r'))["env_type"]["objective"]["curriculum"]["n_objective"]
 
     most_objs_time = test_every * np.array(range(len(results['mean_lengths_per_episode_stacked'][0])))
     one_obj_time = 2 * test_every / n_objs * np.array(range(len(results['mean_lengths_new_obj_stacked'][0])))
+
+    results['time_to_success'] = test_every * time_to_success(results['mean_rewards_per_episode'])
+    results['time_to_success_new_obj'] = 2 * test_every / n_objs * time_to_success(results['mean_rewards_new_obj'])
 
     print(results['mean_lengths_per_episode_stacked'].shape, most_objs_time.shape)
     plt.figure()
@@ -193,4 +227,7 @@ if __name__ == "__main__":
 
     out_dir = args.out_dir
     parse_env_subfolder(out_dir=out_dir)
-    plot_best(env_dir=out_dir)
+    try:
+        plot_best(env_dir=out_dir)
+    except:
+        print('Error encountered during plot_best')
