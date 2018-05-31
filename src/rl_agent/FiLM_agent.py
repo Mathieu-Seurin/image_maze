@@ -42,8 +42,6 @@ class VisionFilmGen(nn.Module):
             self.conv_layers.append(nn.ReLU())
             self.conv_layers.append(nn.MaxPool2d(2))
 
-            print("DEVICE HERE", torch.cuda.current_device())
-
 
             # self.layer1 = nn.Sequential(
             #     nn.Conv2d(self.n_channel_in, self.n_intermediate_channel, kernel_size=self.intermediate_kernel_size, padding=2),
