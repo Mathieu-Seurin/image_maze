@@ -3,7 +3,7 @@ from subprocess import Popen
 from itertools import product
 import os
 
-from parse_dir import parse_env_subfolder, plot_best
+from parse_dir import parse_env_subfolder, plot_best, plot_best_per_model
 
 test = False
 verbose = True
@@ -19,16 +19,15 @@ model_folder = "config/model/"
 model_ext_folder = "config/model_ext/"
 
 
-model_to_test = ['resnet_dqn_pretrain', 'dqn_filmed_pretrain', 'resnet_dqn', 'dqn_filmed']
-#model_to_test = ['resnet_dqn_pretrain', 'dqn_filmed_pretrain',]
+model_to_test = ['dqn_filmed_pretrain']
 extension_to_test = ['soft_update0_1', 'soft_update0_01', 'soft_update0_001', 'soft_update0_0001',
                       'hard_update0_1', 'hard_update0_01', 'hard_update0_001']
 
-env_config = ["multi_obj_no_bkg", "multi_obj_class", "change_maze_10_random_image_no_bkg", "change_maze_10_random_image"]
-env_ext = ["15obj_every2"]
+env_config = ["change_maze_10_random_image_no_bkg"]
+env_ext = ["15obj_every2", "5obj_every2"]
 
 n_gpu = 2
-capacity_per_gpu = 5
+capacity_per_gpu = 6
 n_seed = 5
 
 if test:
@@ -101,3 +100,4 @@ for env_str, env_ext_str in product(env_config, env_ext):
     out_dir = "out/" + env_str + '_' + env_ext_str
     parse_env_subfolder(out_dir=out_dir)
     plot_best(env_dir=out_dir)
+    plot_best_per_model(env_dir=out_dir)

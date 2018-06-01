@@ -10,8 +10,62 @@ import os
 import argparse
 import numpy as np
 
-def plot_selected(env_dir, selected_list):
-    pass
+def plot_selected(env_dir, selected_list, name_spec=''):
+
+    all_model_reward_mean_per_ep = []
+    all_model_length_mean_per_ep = []
+
+    for model_id in selected_list:
+
+        mean_reward_file_path = os.path.join(env_dir, model_id, "mean_rewards_per_episode_stacked.npy")
+        mean_length_file_path = os.path.join(env_dir, model_id, "mean_lengths_per_episode_stacked.npy")
+        model_name = open(os.path.join(env_dir, model_id, "model_name"), 'r').read()
+
+        all_model_reward_mean_per_ep.append( (np.load(mean_reward_file_path), model_name))
+        all_model_length_mean_per_ep.append( (np.load(mean_length_file_path), model_name))
+
+
+    # TODO : use averaged curve from aggregate_sub_folder_res
+    palette = sns.color_palette(n_colors=len(all_model_length_mean_per_ep))
+
+    plt.figure()
+    for model_num, (reward_mean_per_ep, model_name) in enumerate(all_model_reward_mean_per_ep):
+        sns.tsplot(data=reward_mean_per_ep, condition=model_name, color=palette[model_num])
+
+    plt.savefig(os.path.join(env_dir, "model_curve_reward_summary{}.png".format(name_spec)))
+    plt.close()
+
+    for model_num, (length_mean_per_ep, model_name) in enumerate(all_model_length_mean_per_ep):
+        sns.tsplot(data=length_mean_per_ep, condition=model_name, color=palette[model_num])
+
+    plt.savefig(os.path.join(env_dir, "model_curve_length_summary{}.png".format(name_spec)))
+    plt.close()
+
+def plot_best_per_model(env_dir, num_model_taken = 3):
+
+    best_resnet_dqn_model = []
+    best_film_dqn_model = []
+
+    summary_path = os.path.join(env_dir, 'summary')
+    with open(summary_path) as summary_file:
+        for line_num, line in enumerate(summary_file.readlines()):
+            if len(best_resnet_dqn_model)>= num_model_taken and len(best_film_dqn_model)>=num_model_taken:
+                break
+
+            line_splitted = line.split(' ')
+            name = line_splitted[0]
+            model_id = line_splitted[1]
+
+            if 'resnet_dqn' in name and len(best_resnet_dqn_model)< num_model_taken:
+                best_resnet_dqn_model.append(model_id)
+
+            elif 'dqn_filmed' in name and len(best_film_dqn_model) < num_model_taken:
+                best_film_dqn_model.append(model_id)
+
+
+    best_resnet_dqn_model.extend(best_film_dqn_model)
+    plot_selected(env_dir, best_resnet_dqn_model, name_spec="_best_per_model")
+
 
 def plot_best(env_dir, num_taken=5):
 
@@ -26,33 +80,11 @@ def plot_best(env_dir, num_taken=5):
             name = line_splitted[0]
             model_id = line_splitted[1]
 
-            list_five_best_id.append( (name,model_id) )
-
-    all_model_reward_mean_per_ep = []
-    all_model_length_mean_per_ep = []
-
-    for name, model_id in list_five_best_id:
-        mean_reward_file_path = os.path.join(env_dir, model_id, "mean_rewards_per_episode_stacked.npy")
-        mean_length_file_path = os.path.join(env_dir, model_id, "mean_lengths_per_episode_stacked.npy")
-
-        all_model_reward_mean_per_ep.append(np.load(mean_reward_file_path))
-        all_model_length_mean_per_ep.append(np.load(mean_length_file_path))
+            list_five_best_id.append(model_id)
 
 
-    # TODO : use averaged curve from aggregate_sub_folder_res
+    plot_selected(env_dir, list_five_best_id, name_spec="best{}".format(num_taken))
 
-    plt.figure()
-    for reward_mean_per_ep in all_model_reward_mean_per_ep:
-        sns.tsplot(data=reward_mean_per_ep)
-
-    plt.savefig(os.path.join(env_dir, "model_curve_reward_summary.png"))
-    plt.close()
-
-    for length_mean_per_ep in all_model_length_mean_per_ep:
-        sns.tsplot(data=length_mean_per_ep)
-
-    plt.savefig(os.path.join(env_dir, "model_curve_length_summary.png"))
-    plt.close()
 
 def parse_env_subfolder(out_dir):
     results = []
@@ -227,8 +259,6 @@ def aggregate_sub_folder_res(subfolder_path):
 
 
 
-
-
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser('Log Parser arguments!')
@@ -247,6 +277,8 @@ if __name__ == "__main__":
             print("=============================")
             parse_env_subfolder(out_dir=env_path)
             plot_best(env_dir=env_path)
+            plot_best_per_model(env_dir=env_path)
     else:
         parse_env_subfolder(out_dir=out_dir)
         plot_best(env_dir=out_dir)
+        plot_best_per_model(env_dir=out_dir)
