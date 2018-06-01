@@ -6,7 +6,7 @@
     "n_row": 5,
     "n_col": 4,
     "state_type" : "surrounding",
-    "change_maze" : 0,
+    "change_maze" : 10,
     "maze_type" : "sequential",
     "time_penalty" : false,
     "use_normalization" : false,
