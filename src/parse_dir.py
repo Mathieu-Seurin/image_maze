@@ -10,6 +10,15 @@ import os
 import argparse
 import numpy as np
 
+
+def time_to_success(averaged_curve):
+    success_threshold = 0.6
+    tmp = np.where(averaged_curve > success_threshold)
+    if tmp[0].shape == (0,):
+        return len(averaged_curve)
+    else:
+        return tmp[0][0]
+
 def plot_selected(env_dir, selected_list, name_spec=''):
 
     all_model_reward_mean_per_ep = []
@@ -54,6 +63,7 @@ def plot_best_per_model(env_dir, num_model_taken = 3):
 
             line_splitted = line.split(' ')
             name = line_splitted[0]
+            print(line_splitted)
             model_id = line_splitted[1]
 
             if 'resnet_dqn' in name and len(best_resnet_dqn_model)< num_model_taken:
@@ -88,6 +98,7 @@ def plot_best(env_dir, num_taken=5):
 
 def parse_env_subfolder(out_dir):
     results = []
+    results_new_obj = []
 
     for subfolder in os.listdir(out_dir):
         result_path = os.path.join(out_dir, (subfolder))
@@ -103,25 +114,41 @@ def parse_env_subfolder(out_dir):
             continue
 
         name = results_sub['model_name']
+
+        # Summary for main experiment
         mean_mean_reward = results_sub['mean_mean_reward']
         mean_mean_length = results_sub['mean_mean_length']
+        time_to_success = results_sub['time_to_success']
+        results.append((name, subfolder, mean_mean_length, mean_mean_reward, time_to_success))
 
-        results.append((name, subfolder, mean_mean_length, mean_mean_reward))
+        # Summary for new_obj
+        mean_mean_reward_new_obj = results_sub['mean_mean_reward_new_obj']
+        mean_mean_length_new_obj = results_sub['mean_mean_length_new_obj']
+        time_to_success_new_obj = results_sub['time_to_success_new_obj']
+        results_new_obj.append((name, subfolder, mean_mean_length_new_obj, mean_mean_reward_new_obj, time_to_success_new_obj))
+
+
 
     results.sort(key=lambda x:x[2])
+    results_new_obj.sort(key=lambda x:x[2])
     print(results)
+    print(results_new_obj)
 
     summary_str = ''
-    for name, subfolder, length, reward in results:
-        summary_str += "{} {} {} {}\n".format(name, subfolder, length, reward)
+    for name, subfolder, length, reward, time in results:
+        summary_str += "{} {} {} {} {}\n".format(name, subfolder, length, reward, time)
+
+    summary_str_new_obj = ''
+    for name, subfolder, length, reward, time in results_new_obj:
+        summary_str_new_obj += "{} {} {} {} {}\n".format(name, subfolder, length, reward, time)
 
     open(out_dir+"/summary", 'w').write(summary_str)
+    open(out_dir+"/summary_new_obj", 'w').write(summary_str_new_obj)
 
 def aggregate_sub_folder_res(subfolder_path):
     # config_files.txt  config.json  eval_curve.png  last_10_std_length  last_10_std_reward  last_5_length.npy  last_5_reward.npy
     # length.npy  mean_length  mean_reward  model_name  reward.npy  train_lengths  train.log  train_rewards
     results = dict()
-
     results['model_name'] = open(subfolder_path+"model_name", 'r').read()
 
     results['mean_mean_reward'] = 0
@@ -181,7 +208,7 @@ def aggregate_sub_folder_res(subfolder_path):
         results['mean_rewards_new_obj'].append(np.mean(reward_aggregator, axis=0))
 
 
-    ###### LEARNING STATS'N PLOTS #####
+    ###### LEARNING : STATS'N PLOTS #####
     #==================================
 
     results['mean_mean_reward'] /= n_different_seed
@@ -208,6 +235,7 @@ def aggregate_sub_folder_res(subfolder_path):
     results['std_rewards_per_episode'] = results['mean_rewards_per_episode_stacked'].std(axis=0)
 
     # print(results['mean_lengths_per_episode_stacked'].shape, most_objs_time.shape)
+
     plt.figure()
     sns.tsplot(data=results['mean_lengths_per_episode_stacked'], time=most_objs_time)
     plt.savefig(os.path.join(subfolder_path, "mean_lengths_per_episode_over{}_run.png".format(n_different_seed)))
@@ -221,7 +249,7 @@ def aggregate_sub_folder_res(subfolder_path):
     np.save(os.path.join(subfolder_path, "mean_rewards_per_episode_stacked"), results['mean_rewards_per_episode_stacked'])
     np.save(os.path.join(subfolder_path, "mean_lengths_per_episode_stacked"), results['mean_lengths_per_episode_stacked'])
 
-    ###### NEW OBJ STATS'N PLOTS #####
+    ###### NEW OBJ : STATS'N PLOTS #####
     #=================================
 
     # If you have 20 objectives, no new obj possible.
@@ -238,8 +266,21 @@ def aggregate_sub_folder_res(subfolder_path):
         results['mean_lengths_new_obj_stacked'] = np.stack(results['mean_lengths_new_obj'], axis=0)
         results['mean_rewards_new_obj_stacked'] = np.stack(results['mean_rewards_new_obj'], axis=0)
 
+        results['mean_lengths_new_obj'] = results['mean_lengths_new_obj_stacked'].mean(axis=0)
+        results['mean_rewards_new_obj'] = results['mean_rewards_new_obj_stacked'].mean(axis=0)
+
+        results['mean_mean_reward_new_obj'] = results['mean_lengths_new_obj'].mean()
+        results['mean_mean_length_new_obj'] = results['mean_rewards_new_obj'].mean()
+
         results['std_lengths_new_obj'] = results['mean_lengths_new_obj_stacked'].std(axis=0)
         results['std_rewards_new_obj'] = results['mean_rewards_new_obj_stacked'].std(axis=0)
+
+        results['std_lengths_new_obj'] = results['mean_lengths_new_obj_stacked'].std(axis=0)
+        results['std_rewards_new_obj'] = results['mean_rewards_new_obj_stacked'].std(axis=0)
+
+        # Add time to reach success_threshold as part of the results
+        results['time_to_success'] = test_every * time_to_success(results['mean_rewards_per_episode'])
+        results['time_to_success_new_obj'] = 2 * test_every / n_objs * time_to_success(results['mean_rewards_new_obj'])
 
         plt.figure()
         sns.tsplot(data=results['mean_lengths_new_obj_stacked'], time=one_obj_time)
@@ -263,11 +304,10 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser('Log Parser arguments!')
 
-    parser.add_argument("-out_dir", type=str, default='' ,help="Environment result directory (ex : out/multi_obj_test10every2")
+    parser.add_argument("-out_dir", type=str, default='', help="Environment result directory (ex : out/multi_obj_test10every2")
     args = parser.parse_args()
 
     out_dir = args.out_dir
-
     if out_dir == '':
         for out_dir in os.listdir('out/'):
             env_path = os.path.join('out', out_dir)
@@ -280,5 +320,9 @@ if __name__ == "__main__":
             plot_best_per_model(env_dir=env_path)
     else:
         parse_env_subfolder(out_dir=out_dir)
-        plot_best(env_dir=out_dir)
+        try:
+            plot_best(env_dir=out_dir)
+        except:
+            print('Error encountered during plot_best')
         plot_best_per_model(env_dir=out_dir)
+

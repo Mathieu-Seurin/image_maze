@@ -1,0 +1,18 @@
+{"name":"10_every_1_reinforce",
+  "env_type":
+  {
+    "objective" : {
+      "curriculum":
+      {
+        "n_objective" : 10,
+        "change_every" : 1
+      }
+
+    }
+  },
+  "train_params": {
+    "n_epochs" : 10000,
+    "test_every": 250,
+    "n_epochs_test": 10
+  }
+}

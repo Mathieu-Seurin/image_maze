@@ -1,0 +1,5 @@
+{
+  "resnet_reinforce_params":{
+    "update_every": 50
+  }
+}
