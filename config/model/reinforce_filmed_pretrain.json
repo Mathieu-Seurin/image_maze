@@ -2,7 +2,7 @@
   "name": "reinforce_filmed_pretrain",
 
   "agent_type":"resnet_reinforce",
-  "pretrained_features" : true,
+  "image_features" : "specific",
 
   "resnet_reinforce_params":{
     "film_gen_params":

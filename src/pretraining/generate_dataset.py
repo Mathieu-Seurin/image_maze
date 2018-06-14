@@ -30,14 +30,14 @@ assert np.min(X_train) == 0
 assert np.max(X_train) == 255
 assert len(np.unique(y_train)) == 20
 
-
+num_colors = 3
 
 # Build X_aug to contain 3 copies of each initial image with different colors
-Y_train_color = np.random.randint(0, 255, size=(3 * X_train.shape[0], 3))
-Y_train_class = np.concatenate((y_train, y_train, y_train))
-X_train_aug = np.zeros((3 * X_train.shape[0], 3, 28, 28))
+Y_train_color = np.random.randint(0, 255, size=(num_colors * X_train.shape[0], 3))
+Y_train_class = np.tile(y_train, num_colors)
+X_train_aug = np.zeros((num_colors * X_train.shape[0], 3, 28, 28))
 
-for i in tqdm.tqdm(range(3 * X_train.shape[0])):
+for i in tqdm.tqdm(range(num_colors * X_train.shape[0])):
     # First, get the uniform background
     tmp = np.repeat(Y_train_color[i].reshape((3,1)), 28, axis=1)
     tmp = tmp.reshape(tmp.shape + (1,))

@@ -6,7 +6,8 @@
   },
 
   "agent_type":"reinforce",
-  "pretrained_features" : false,
+  "image_features" : "normalized",
+
   "reinforce_params": {
     "input_resolution": [28, 28],
     "n_channels": 18,

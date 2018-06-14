@@ -1,0 +1,3 @@
+Slave, {color} {object}
+My {color} {object} is necessary
+At the {color} location, fetch my {object}

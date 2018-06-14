@@ -1,0 +1,33 @@
+{
+  "name": "text_test",
+  "env_type":
+  {
+    "n_row": 5,
+    "n_col": 4,
+    "n_zone": 4,
+    "state_type" : "surrounding",
+    "change_maze" : 0,
+    "maze_type" : "zone",
+    "time_penalty" : false,
+    "objective" : {
+      "type" : "text",
+      "curriculum":
+      {
+        "n_objective" : 2,
+        "change_every" : 1
+      }
+
+    }
+  },
+  "train_params": {
+    "epsilon_schedule": ["exp", 0.95],
+    "n_epochs" : 300,
+    "test_every": 100,
+    "n_epochs_test": 7
+  },
+
+  "io": {
+    "verbosity": 1,
+    "num_epochs_to_store": 1
+  }
+}

@@ -14,6 +14,8 @@ import torchvision
 import torch.nn.functional as F
 from torchvision import datasets, models, transforms
 
+from image_text_utils  import normalize_image_for_saving, channel_first_to_channel_last, channel_last_to_channel_first
+
 use_cuda = torch.cuda.is_available()
 FloatTensor = torch.cuda.FloatTensor if use_cuda else torch.FloatTensor
 LongTensor = torch.cuda.LongTensor if use_cuda else torch.LongTensor
@@ -69,11 +71,9 @@ try:
         os.makedirs(dir_)
         for subdir_ in ["maze_images", "obj_images"]:
             os.makedirs(dir_ + '/' + subdir_)
-            for bkg in ["with_bkg", "without_bkg"]:
-                os.makedirs(dir_ + '/' + subdir_ + '/' + bkg)
-                for cat in range(20):
-                    os.makedirs(dir_ + '/' + subdir_ + '/' + bkg + '/' + str(cat))
-except:
+            for cat in range(20):
+                os.makedirs(dir_ + '/' + subdir_ + '/' + str(cat))
+except FileExistsError:
     pass
 
 
@@ -105,28 +105,55 @@ def normalize_blob(blob):
 
 
 def generate_one_folder(X=None, y=None, dataset_colors=None, folder=None):
-    blob = torch.zeros((X.shape[0], 32, 7, 7))
+    # blob = torch.zeros((X.shape[0], 32, 7, 7))
+
+    for class_subdir in os.listdir(folder):
+
+        class_dir_path = os.path.join(folder, class_subdir)
+        for color in dataset_colors:
+            try:
+                color_str = '_'.join(map(str,map(int,color)))
+                path_to_color = os.path.join(class_dir_path, color_str)
+                os.mkdir(path_to_color)
+                os.mkdir(os.path.join (path_to_color, 'raw'))
+                os.mkdir(os.path.join (path_to_color, 'normalized'))
+                os.mkdir(os.path.join (path_to_color, 'specific'))
+
+            except FileExistsError:
+                pass
+
     for i in tqdm.tqdm(range(X.shape[0])):
-        # First, get the uniform background
-        tmp = np.repeat(dataset_colors[y[i]].reshape((3,1)), 28, axis=1)
-        tmp = tmp.reshape(tmp.shape + (1,))
-        tmp = np.repeat(tmp, 28, axis=2)
+        for color in dataset_colors:
+            # First, get the uniform background
+            color_str = '_'.join(map(str, map(int, color)))
+            tmp = np.repeat(color.reshape((3,1)), 28, axis=1)
+            tmp = tmp.reshape(tmp.shape + (1,))
+            tmp = np.repeat(tmp, 28, axis=2)
 
-        # Then, replace non-dark regions by the background
-        img = X[i]
-        mask = img>10
-        tmp[:, mask] = img[mask]
-        tmp = tmp.astype(np.uint8)
-        # Dump image
-        Image.fromarray(tmp.transpose((1,2,0)), 'RGB').save(folder + '/{}/{}.jpg'.format(y[i], i))
-        # Normalize, extract feature maps, dump them
-        tmp = tmp / 255. - 0.5
-        fmap = feature_extractor(Variable(FloatTensor(tmp).unsqueeze(0), volatile=True))
-        fmap = fmap.data.squeeze(0).cpu()
-        torch.save(fmap, folder + '/{}/{}.tch'.format(y[i], i))
-        blob[i] = fmap
+            # Then, replace non-dark regions by the background
+            img = X[i]
+            mask = img>10
+            tmp[:, mask] = img[mask]
+            tmp = tmp.astype(np.uint8)
+            # Dump image
+            Image.fromarray(tmp.transpose((1,2,0)), 'RGB').save(os.path.join(folder, '{}/{}/raw/{}.jpg'.format(y[i], color_str, i)))
+            # Normalize, extract feature maps, dump them
+            tmp = tmp / 255.
 
-    blob = normalize_blob(blob)
+            normalized_img = normalize_image_for_saving(tmp)
+            torch.save(torch.FloatTensor(normalized_img).cpu(), folder + '/{}/{}/normalized/{}.tch'.format(y[i], color_str, i))
+
+            # Normalize to match model pretraining
+            tmp = tmp - 0.5
+
+            fmap = feature_extractor(Variable(FloatTensor(tmp).unsqueeze(0), volatile=True))
+            fmap = fmap.data.squeeze(0).cpu()
+            torch.save(fmap, folder + '/{}/{}/specific/{}.tch'.format(y[i], color_str, i))
+
+            #todo : image_net resnet save
+    #    blob[i] = fmap
+
+    # blob = normalize_blob(blob)
     # for i in tqdm.tqdm(range(blob.shape[0])):
     #     # print(blob[i].shape)
     #     torch.save(blob[i], 'maze_images/{}/{}_normed.tch'.format(Y_train_class[i], i))
@@ -156,28 +183,18 @@ background[0, :, :] = np.tile(np.linspace(0, 1, 4), (5, 1))
 background[2, :, :] = np.tile(np.linspace(1, 0, 5), (4, 1)).T
 
 maze_colors = [background[:, cat // 4, cat % 4] * 255 for cat in range(20)]
-full_dark = [np.array([0,0,0]) for cat in range(20)]
+
+# Add black background
+maze_colors.append(np.array([0,0,0]))
 
 # Train with background
 generate_one_folder(X=X_train_maze, y=y_train_maze, dataset_colors=maze_colors,
-                    folder='train/maze_images/with_bkg')
+                    folder='train/maze_images/')
 generate_one_folder(X=X_train_obj, y=y_train_obj, dataset_colors=maze_colors,
-                    folder='train/obj_images/with_bkg')
-
-# Train without background
-generate_one_folder(X=X_train_maze, y=y_train_maze, dataset_colors=full_dark,
-                    folder='train/maze_images/without_bkg')
-generate_one_folder(X=X_train_obj, y=y_train_obj, dataset_colors=full_dark,
-                    folder='train/obj_images/without_bkg')
+                    folder='train/obj_images/')
 
 # Test with background
 generate_one_folder(X=X_test_maze, y=y_test_maze, dataset_colors=maze_colors,
-                    folder='test/maze_images/with_bkg')
+                    folder='test/maze_images/')
 generate_one_folder(X=X_test_obj, y=y_test_obj, dataset_colors=maze_colors,
-                    folder='test/obj_images/with_bkg')
-
-# Test without background
-generate_one_folder(X=X_test_maze, y=y_test_maze, dataset_colors=full_dark,
-                    folder='test/maze_images/without_bkg')
-generate_one_folder(X=X_test_obj, y=y_test_obj, dataset_colors=full_dark,
-                    folder='test/obj_images/without_bkg')
+                    folder='test/obj_images/')
