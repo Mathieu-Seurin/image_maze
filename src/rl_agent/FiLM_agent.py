@@ -356,8 +356,11 @@ class FilmedNetText(nn.Module):
 
             self.modulated_blocks.append(current_modulated_resblock)
 
-
-        self.word_embedding = nn.Embedding(self.vocab_size, self.embedding_size)
+        if self.embedding_size > 0:
+            self.word_embedding = nn.Embedding(self.vocab_size, self.embedding_size)
+        else:
+            self.word_embedding = lambda x:x
+            self.embedding_size = self.vocab_size
 
         self.lstm = nn.LSTM(input_size=self.embedding_size,
                             hidden_size=self.lstm_size,
@@ -421,9 +424,7 @@ class FilmedNetText(nn.Module):
             x = modulated_resblock.forward(x, gammas=gammas[:, gamma_beta_id], betas=betas[:, gamma_beta_id])
 
         x = self.head_conv(x)
-
         x = F.max_pool2d(x, kernel_size=self.pool_kernel_size_head)
-
         x = x.view(x.size(0), -1)
 
         #concatenate

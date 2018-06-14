@@ -20,7 +20,6 @@ import os
 from .gpu_utils import use_cuda, FloatTensor, LongTensor, ByteTensor, Tensor
 from image_text_utils import TextToIds
 
-
 import os
 
 class DQNAgent(object):

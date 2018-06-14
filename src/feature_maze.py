@@ -35,7 +35,15 @@ class ImageFmapGridWorld(object):
     @property
     def path_to_objectives_images(self):
         #                                                                     class    color
-        return self.image_location + self.train_test_folder + 'obj_images'   + '{}/' + '{}/' + self.features_type
+        return self.image_location + self.train_test_folder + 'obj_images/'   + '{}/' + '{}/' + self.features_type
+
+    @property
+    def reward_position(self):
+        return self._reward_position
+    @reward_position.setter
+    def reward_position(self, x):
+        self.current_objective = None
+        self._reward_position = x
 
     def __init__(self, config, features_type, save_image):
 
@@ -89,6 +97,7 @@ class ImageFmapGridWorld(object):
         self.grid = []
         # grid containing the class and color of each case
         self.grid_label_color = []
+        self.current_objective = None
         self.create_grid_of_image(show=False)
 
         if config["state_type"] == "current":
@@ -104,7 +113,7 @@ class ImageFmapGridWorld(object):
         #=====================================================
         if self.objective_type == 'fixed' :
             self.get_objective_state = lambda *args: None
-            self.reward_position = (2, 2)
+            self._reward_position = (2, 2)
             self.post_process = lambda *args: None
         else:
 
@@ -128,7 +137,7 @@ class ImageFmapGridWorld(object):
             self.train_objectives = self.all_objectives[:self.n_objectives]
             self.test_objectives = self.all_objectives[self.n_objectives:self.max_objectives]
 
-            self.reward_position = self.train_objectives[0]
+            self._reward_position = self.train_objectives[0]
 
             self.post_process = self._change_objective
 
@@ -148,33 +157,49 @@ class ImageFmapGridWorld(object):
         return state
 
     def get_current_objective(self):
-        x,y = self.reward_position
+        x,y = self._reward_position
         return Tensor(self.grid[x,y])
 
     def get_objective(self):
 
-        x_rew, y_rew = self.reward_position
+        if self.current_objective is None:
+            self.current_objective = self._create_objective()
+#        self.current_objective = self._create_objective()
+
+        return self.current_objective
+
+    def _create_objective(self):
+
+        if self.objective_type == 'text':
+            objective = self._create_text_objective()
+        else:
+            objective = self._create_image_objective()
+        return objective
+
+    def _create_image_objective(self):
+
+        x_rew, y_rew = self._reward_position
         label_id, color_obj = self.grid_label_color[x_rew, y_rew]['label'], self.grid_label_color[x_rew, y_rew]['color']
+
         if not self.use_background_for_objective:
             color_obj = '0_0_0'
 
-        if self.objective_type == 'text':
-            objective = self.get_text_objective()
-        else:
-            images_folder = self.path_to_objectives_images
-            images_folder.format(label_id, color_obj)
-            objective, _ = load_image_or_fmap(path_to_images=images_folder)
+        images_folder = self.path_to_objectives_images
+        images_folder = images_folder.format(label_id, color_obj)
+        objective, _ = load_image_or_fmap(path_to_images=images_folder)
 
         return objective
 
-    def get_text_objective(self):
-        x,y = self.reward_position
+    def _create_text_objective(self):
+        x,y = self._reward_position
         color, label = self.grid_label_color[x,y]['color'], self.grid_label_color[x,y]['label']
         text_objective = self.text_objective_generator.sample(color=color, label=label)
         return text_objective
 
 
     def _change_objective(self):
+
+        # If objective has been used for enough epochs, change it.
         if self.count_current_objective >= self.objective_changing_every:
             self.reward_position = self.train_objectives[np.random.randint(len(self.train_objectives))]
             self.count_current_objective = 1
@@ -233,13 +258,12 @@ class ImageFmapGridWorld(object):
         self.agent_position = (copy(current_x), copy(current_y))
         observation = self.get_state()
         reward += self.get_reward()
-        info = {'agent_position' : copy(self.agent_position), 'reward_position': copy(self.reward_position)}
+        info = {'agent_position' : copy(self.agent_position), 'reward_position': copy(self._reward_position)}
 
         assert self.agent_position == (current_x, current_y), "Problem with agent position"
 
         if reward == 1:
             done = True
-            self.post_process()
         else:
             done = False
 
@@ -281,13 +305,13 @@ class ImageFmapGridWorld(object):
         return torch.cat(all_directions_obs, 0)
 
     def _get_reward_no_penalty(self):
-        if np.all(self.agent_position == self.reward_position):
+        if np.all(self.agent_position == self._reward_position):
             return 1
         else:
             return 0
 
     def _get_reward_with_penalty(self):
-        if np.all(self.agent_position == self.reward_position):
+        if np.all(self.agent_position == self._reward_position):
             return 1
         else:
             return -0.1
@@ -306,7 +330,7 @@ class ImageFmapGridWorld(object):
             x_middle = x_size//2
             y_middle = y_size//2
 
-            x_rew, y_rew = self.reward_position
+            x_rew, y_rew = self._reward_position
 
             # Display agent position as a red point.
             custom_grid[x,y, x_middle-3:x_middle+3, y_middle-3:y_middle+3, :] = [255,0,0]

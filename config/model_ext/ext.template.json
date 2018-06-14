@@ -1,5 +1,5 @@
 {
-  "name": "test",
+  "name": "no_ext",
 
   "resnet_dqn_params":{
     "film_gen_params_vision":

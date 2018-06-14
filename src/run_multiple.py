@@ -23,8 +23,8 @@ model_to_test = ['dqn_filmed_pretrain', 'dqn_filmed', 'resnet_dqn', 'resnet_dqn_
 extension_to_test = ['soft_update0_1', 'soft_update0_01', 'soft_update0_001',
                       'hard_update0_1', 'hard_update0_01', 'hard_update0_001']
 
-env_config = ["text_small"]
-env_ext = ["20obj_every2"]
+env_config = ["text_small", "text_large"]
+env_ext = ["20obj_every2", "10obj_every2"]
 
 n_gpu = 4
 capacity_per_gpu = 6

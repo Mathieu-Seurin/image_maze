@@ -141,6 +141,7 @@ def train(agent, env):
             state = next_state
 
         agent.callback(epoch)
+        env.post_process()
 
     save_stats(save_path, reward_list, length_list)
 
@@ -166,6 +167,7 @@ def test(agent, env, config, num_test):
 
     for num_objective, objective in enumerate(train_objectives):
         logging.debug('Switching objective to {}'.format(objective))
+
         env.reward_position = objective
 
         for epoch in range(n_epochs_test):
@@ -297,11 +299,10 @@ def test_new_obj_learning(agent, env, config):
         # Do nothing for 'fixed' objective_type
         return
     else:
-        # For now, test only on previously seen examples
         test_objectives = env.test_objectives
 
-    n_epochs_new_obj = n_epochs // len(env.objectives) * 2
-    test_every_new_obj = test_every // len(env.objectives) * 2
+    n_epochs_new_obj = n_epochs // len(env.train_objectives) * 2
+    test_every_new_obj = test_every // len(env.train_objectives) * 2
 
     state_dict, saved_memory = agent.save_state()
     logging.info('Agent state saved')
