@@ -1,0 +1,14 @@
+{
+  "name": "bigger_vision",
+
+  "resnet_dqn_params":{
+
+    "n_modulated_block": 4,
+    "n_hidden" : 600,
+
+    "head_kernel": 3,
+    "head_pool_kernel": 1,
+    "head_channel": 10
+
+  }
+}

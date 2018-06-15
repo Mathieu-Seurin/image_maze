@@ -40,12 +40,12 @@
     "head_pool_kernel": 1,
     "head_channel": 10,
 
-    "word_emb_size" : 0,
+    "word_emb_size" : 20,
     "lstm_size" : 200,
 
 
     "use_film" : true,
     "tau" : 0.1,
-    "soft_update" : false
+    "soft_update" : true
   }
 }

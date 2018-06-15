@@ -7,6 +7,8 @@ from torch.autograd import Variable
 
 from rl_agent.film_utils import ResidualBlock, FiLMedResBlock
 
+import sklearn
+
 from .gpu_utils import FloatTensor
 
 class VisionFilmGen(nn.Module):
@@ -359,8 +361,8 @@ class FilmedNetText(nn.Module):
         if self.embedding_size > 0:
             self.word_embedding = nn.Embedding(self.vocab_size, self.embedding_size)
         else:
-            self.word_embedding = lambda x:x
-            self.embedding_size = self.vocab_size
+            # todo : one hot encoding
+            raise NotImplementedError("Word embedding is needed.")
 
         self.lstm = nn.LSTM(input_size=self.embedding_size,
                             hidden_size=self.lstm_size,
