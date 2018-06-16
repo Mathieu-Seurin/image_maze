@@ -140,6 +140,7 @@ def aggregate_sub_folder_res(subfolder_path):
                 length_aggregator = np.vstack((length_aggregator, np.load(new_obj_dir+"{}_length.npy".format(obj))))
                 reward_aggregator = np.vstack((reward_aggregator, np.load(new_obj_dir+"{}_reward.npy".format(obj))))
 
+
         # This is averaged over objs
         results['mean_lengths_new_obj'].append(np.mean(length_aggregator, axis=0))
         results['mean_rewards_new_obj'].append(np.mean(reward_aggregator, axis=0))
@@ -170,7 +171,7 @@ def aggregate_sub_folder_res(subfolder_path):
 
     # Add time to reach success_threshold as part of the results
     def time_to_success(averaged_curve):
-        success_threshold = 0.6
+        success_threshold = 0.65
         tmp = np.where(averaged_curve > success_threshold)
         if tmp[0].shape == (0,):
             return len(averaged_curve)

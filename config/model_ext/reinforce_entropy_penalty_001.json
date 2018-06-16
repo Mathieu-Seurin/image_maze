@@ -1,0 +1,5 @@
+{"name" : "reinforce_entropy_penalty_001",
+  "resnet_reinforce_params":{
+    "entropy_penalty": 0.001
+  }
+}

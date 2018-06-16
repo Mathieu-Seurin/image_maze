@@ -40,7 +40,7 @@ if test:
     env_ext = ["10_every_1"]
 
     n_gpu = 1
-    n_seed = 6
+    n_seed = 3
 
 
 seeds = [i for i in range(n_seed)]

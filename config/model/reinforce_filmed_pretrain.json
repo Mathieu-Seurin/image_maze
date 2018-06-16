@@ -29,7 +29,8 @@
     "head_kernel" : 1,
     "head_pool_kernel" : 2,
     "use_film" : true,
-    "update_every": 100,
-    "concatenate_objective" : false
+    "update_every": 25,
+    "concatenate_objective" : false,
+    "entropy_penalty": 0.01
   }
 }

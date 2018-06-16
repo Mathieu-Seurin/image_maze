@@ -60,6 +60,7 @@ class ReinforceAgent(object):
         self.n_action = n_action
         self.gamma = config['discount_factor']
         self.update_every = config['update_every']
+        self.entropy_penalty = config['entropy_penalty']
         self.concatenate_objective = config['concatenate_objective']
         self.last_loss = np.nan
         self.rewards_epoch = []
@@ -105,9 +106,12 @@ class ReinforceAgent(object):
             # print(env_states.shape, objectives.shape, actions.shape)
             states = {'env_state': env_states, 'objective': objectives}
 
-            # log_probs = torch.log(self.forward_model(states)).gather(1, Variable(actions.view(-1, 1))).squeeze(1)
-            log_probs = torch.log(F.softmax(self.forward_model(states), dim=1)).gather(1, Variable(actions.view(-1, 1))).squeeze(1)
 
+            full_log_probs = torch.log(F.softmax(self.forward_model(states), dim=1))
+            entropy_loss = (torch.exp(full_log_probs) * full_log_probs).sum(dim=1).sum()
+            
+
+            log_probs = full_log_probs.gather(1, Variable(actions.view(-1, 1))).squeeze(1)
             policy_loss = []
 
             for log_prob, reward in zip(log_probs, rewards):
@@ -126,8 +130,11 @@ class ReinforceAgent(object):
                 logging.warning('Invalid loss encountered')
                 return
 
+            # print(policy_loss, entropy_loss)
+            loss = policy_loss + self.entropy_penalty * entropy_loss
+
             self.forward_model.optimizer.zero_grad()
-            policy_loss.backward()
+            loss.backward()
             for param in self.forward_model.parameters():
                 logging.debug(param.grad.data.sum())
                 param.grad.data.clamp_(-1., 1.)
@@ -171,5 +178,3 @@ class ReinforceAgent(object):
     def load_state(self, state_dict, memory):
         # Don't care about memory here
         self.forward_model.load_state_dict(state_dict)
-
-
