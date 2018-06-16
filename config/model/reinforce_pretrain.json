@@ -1,7 +1,9 @@
 {
   "name": "reinforce_pretrain",
   "agent_type":"reinforce",
-  "pretrained_features" : true,
+
+  "images_features" : "specific",
+
   "resnet_reinforce_params": {
     "input_resolution": [7, 7],
     "n_channels": 192,

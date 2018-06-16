@@ -2,8 +2,7 @@
   "name": "resnet_dqn_pretrain",
 
   "agent_type":"resnet_dqn",
-
-  "pretrained_features" : true,
+  "images_features" : "specific",
 
   "resnet_dqn_params":{
     "learning_rate" : 1e-5,
@@ -12,14 +11,21 @@
     "discount_factor": 0.90,
     "n_modulated_block": 0,
     "n_regular_block": 2,
+
     "resblock_dropout": 0,
     "fc_dropout": 0,
     "n_hidden" : 400,
-    "head_channel" : 3,
-    "head_kernel" : 3,
-    "head_pool_kernel" : 2,
+
     "use_film" : false,
     "tau" : 0.1,
-    "soft_update" : false
+    "soft_update" : false,
+
+
+    "head_kernel": 1,
+    "head_pool_kernel": 1,
+    "head_channel": 10,
+    "word_emb_size" : 30,
+    "lstm_size" : 200
+
   }
 }

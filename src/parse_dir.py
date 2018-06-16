@@ -10,12 +10,55 @@ import os
 import argparse
 import numpy as np
 
-def plot_best(env_dir, num_taken=5):
 
-    list_five_best_id = []
-    with open(env_dir+"summary") as summary_file:
-        for line_num, line in enumerate(summary_file.readline()):
-            if line_num >= num_taken:
+def time_to_success(averaged_curve):
+    success_threshold = 0.6
+    tmp = np.where(averaged_curve > success_threshold)
+    if tmp[0].shape == (0,):
+        return len(averaged_curve)
+    else:
+        return tmp[0][0]
+
+def plot_selected(env_dir, selected_list, name_spec=''):
+
+    all_model_reward_mean_per_ep = []
+    all_model_length_mean_per_ep = []
+
+    for model_id in selected_list:
+
+        mean_reward_file_path = os.path.join(env_dir, model_id, "mean_rewards_per_episode_stacked.npy")
+        mean_length_file_path = os.path.join(env_dir, model_id, "mean_lengths_per_episode_stacked.npy")
+        model_name = open(os.path.join(env_dir, model_id, "model_name"), 'r').read()
+
+        all_model_reward_mean_per_ep.append( (np.load(mean_reward_file_path), model_name))
+        all_model_length_mean_per_ep.append( (np.load(mean_length_file_path), model_name))
+
+
+    # TODO : use averaged curve from aggregate_sub_folder_res
+    palette = sns.color_palette(n_colors=len(all_model_length_mean_per_ep))
+
+    plt.figure()
+    for model_num, (reward_mean_per_ep, model_name) in enumerate(all_model_reward_mean_per_ep):
+        sns.tsplot(data=reward_mean_per_ep, condition=model_name, color=palette[model_num])
+
+    plt.savefig(os.path.join(env_dir, "model_curve_reward_summary{}.png".format(name_spec)))
+    plt.close()
+
+    for model_num, (length_mean_per_ep, model_name) in enumerate(all_model_length_mean_per_ep):
+        sns.tsplot(data=length_mean_per_ep, condition=model_name, color=palette[model_num])
+
+    plt.savefig(os.path.join(env_dir, "model_curve_length_summary{}.png".format(name_spec)))
+    plt.close()
+
+def plot_best_per_model(env_dir, num_model_taken = 3):
+
+    best_resnet_dqn_model = []
+    best_film_dqn_model = []
+
+    summary_path = os.path.join(env_dir, 'summary')
+    with open(summary_path) as summary_file:
+        for line_num, line in enumerate(summary_file.readlines()):
+            if len(best_resnet_dqn_model)>= num_model_taken and len(best_film_dqn_model)>=num_model_taken:
                 break
 
             line_splitted = line.split(' ')
@@ -23,32 +66,34 @@ def plot_best(env_dir, num_taken=5):
             print(line_splitted)
             model_id = line_splitted[1]
 
-            list_five_best_id.append( (name,model_id) )
+            if 'resnet_dqn' in name and len(best_resnet_dqn_model)< num_model_taken:
+                best_resnet_dqn_model.append(model_id)
 
-    all_model_reward_mean_per_ep = []
-    all_model_length_mean_per_ep = []
+            elif 'dqn_filmed' in name and len(best_film_dqn_model) < num_model_taken:
+                best_film_dqn_model.append(model_id)
 
-    new_objs_reward_mean_per_ep = []
-    new_objs_length_mean_per_ep = []
 
-    for model_id in list_five_best_id:
-        all_model_reward_mean_per_ep.append(np.load(env_dir + model_id + "mean_rewards_per_episode_stacked"))
-        all_model_length_mean_per_ep.append(np.load(env_dir + model_id + "mean_lengths_per_episode_stacked"))
+    best_resnet_dqn_model.extend(best_film_dqn_model)
+    plot_selected(env_dir, best_resnet_dqn_model, name_spec="_best_per_model")
 
-    # TODO : use averaged curve from aggregate_sub_folder_res
 
-    plt.figure()
-    for reward_mean_per_ep in all_model_reward_mean_per_ep:
-        sns.tsplot(data=reward_mean_per_ep)
+def plot_best(env_dir, num_taken=5):
 
-    plt.savefig(env_dir+"model_curve_summary.png")
-    plt.close()
+    list_five_best_id = []
+    summary_path = os.path.join(env_dir, 'summary')
+    with open(summary_path) as summary_file:
+        for line_num, line in enumerate(summary_file.readlines()):
+            if line_num >= num_taken:
+                break
 
-    for length_mean_per_ep in all_model_length_mean_per_ep:
-        sns.tsplot(data=length_mean_per_ep)
+            line_splitted = line.split(' ')
+            name = line_splitted[0]
+            model_id = line_splitted[1]
 
-    plt.savefig(env_dir + "model_curve_summary.png")
-    plt.close()
+            list_five_best_id.append(model_id)
+
+
+    plot_selected(env_dir, list_five_best_id, name_spec="best{}".format(num_taken))
 
 
 def parse_env_subfolder(out_dir):
@@ -56,7 +101,7 @@ def parse_env_subfolder(out_dir):
     results_new_obj = []
 
     for subfolder in os.listdir(out_dir):
-        result_path = out_dir + '/' + subfolder
+        result_path = os.path.join(out_dir, (subfolder))
 
         if os.path.isfile(result_path):
             continue
@@ -64,6 +109,10 @@ def parse_env_subfolder(out_dir):
         result_path += '/'
 
         results_sub = aggregate_sub_folder_res(result_path)
+
+        if results_sub is None:
+            continue
+
         name = results_sub['model_name']
 
         # Summary for main experiment
@@ -122,15 +171,29 @@ def aggregate_sub_folder_res(subfolder_path):
         seed_dir += '/'
         n_different_seed += 1
 
-        results['mean_mean_reward'] += float(open(seed_dir+"mean_reward", 'r').read())
+        ###### LEARNING STATS AGGREGATOR #####
+        #====================================
+
+        try :
+            results['mean_mean_reward'] += float(open(seed_dir+"mean_reward", 'r').read())
+        except FileNotFoundError :
+            #print("Experiment failed : {}".format(seed_dir))
+            continue
         results['mean_mean_length'] += float(open(seed_dir+"mean_length", 'r').read())
 
         results['mean_lengths_per_episode'].append(np.load(seed_dir+"length.npy"))
         results['mean_rewards_per_episode'].append(np.load(seed_dir+"reward.npy"))
 
+
+        #### NEW OBJECTIVES STATS AGGREGATOR #######
+        #==========================================
         # The outer loop averages over seeds, need to first average over objs
         new_obj_dir = seed_dir + 'new_obj/'
-        n_objs = len(np.unique([int(i.split('_')[0]) for i in os.listdir(new_obj_dir)]))
+        try:
+            n_objs = len(np.unique([int(i.split('_')[0]) for i in os.listdir(new_obj_dir)]))
+        except FileNotFoundError:
+            # "No new_obj directory found, if there was 20 objectives during training, this is normal")
+            continue
 
         for obj in range(n_objs):
             if obj == 0:
@@ -140,95 +203,126 @@ def aggregate_sub_folder_res(subfolder_path):
                 length_aggregator = np.vstack((length_aggregator, np.load(new_obj_dir+"{}_length.npy".format(obj))))
                 reward_aggregator = np.vstack((reward_aggregator, np.load(new_obj_dir+"{}_reward.npy".format(obj))))
 
-
         # This is averaged over objs
         results['mean_lengths_new_obj'].append(np.mean(length_aggregator, axis=0))
         results['mean_rewards_new_obj'].append(np.mean(reward_aggregator, axis=0))
 
+
+    ###### LEARNING : STATS'N PLOTS #####
+    #==================================
+
     results['mean_mean_reward'] /= n_different_seed
     results['mean_mean_length'] /= n_different_seed
 
-    results['mean_lengths_per_episode_stacked'] = np.stack(results['mean_lengths_per_episode'], axis=0)
-    results['mean_rewards_per_episode_stacked'] = np.stack(results['mean_rewards_per_episode'], axis=0)
+    try:
+        results['mean_lengths_per_episode_stacked'] = np.stack(results['mean_lengths_per_episode'], axis=0)
+    except ValueError:
+        print(subfolder_path, " is an empty experiment")
+        return None
 
-    results['mean_lengths_new_obj_stacked'] = np.stack(results['mean_lengths_new_obj'], axis=0)
-    results['mean_rewards_new_obj_stacked'] = np.stack(results['mean_rewards_new_obj'], axis=0)
-
-    results['mean_lengths_per_episode'] = results['mean_lengths_per_episode_stacked'].mean(axis=0)
-    results['mean_rewards_per_episode'] = results['mean_rewards_per_episode_stacked'].mean(axis=0)
-
-    results['mean_lengths_new_obj'] = results['mean_lengths_new_obj_stacked'].mean(axis=0)
-    results['mean_rewards_new_obj'] = results['mean_rewards_new_obj_stacked'].mean(axis=0)
-
-    results['mean_mean_reward_new_obj'] = results['mean_lengths_new_obj'].mean()
-    results['mean_mean_length_new_obj'] = results['mean_rewards_new_obj'].mean()
-
-    results['std_lengths_per_episode'] = results['mean_lengths_per_episode_stacked'].std(axis=0)
-    results['std_rewards_per_episode'] = results['mean_rewards_per_episode_stacked'].std(axis=0)
-
-    results['std_lengths_new_obj'] = results['mean_lengths_new_obj_stacked'].std(axis=0)
-    results['std_rewards_new_obj'] = results['mean_rewards_new_obj_stacked'].std(axis=0)
-
-    # Add time to reach success_threshold as part of the results
-    def time_to_success(averaged_curve):
-        success_threshold = 0.65
-        tmp = np.where(averaged_curve > success_threshold)
-        if tmp[0].shape == (0,):
-            return len(averaged_curve)
-        else:
-            return tmp[0][0]
-
-
-    # For plots and times to success, determine the scale
+    # For plots, determine the scale
     test_every = json.load(open(subfolder_path + '/config.json', 'r'))["train_params"]["test_every"]
     n_objs = json.load(open(subfolder_path + '/config.json', 'r'))["env_type"]["objective"]["curriculum"]["n_objective"]
 
     most_objs_time = test_every * np.array(range(len(results['mean_lengths_per_episode_stacked'][0])))
-    one_obj_time = 2 * test_every / n_objs * np.array(range(len(results['mean_lengths_new_obj_stacked'][0])))
 
-    results['time_to_success'] = test_every * time_to_success(results['mean_rewards_per_episode'])
-    results['time_to_success_new_obj'] = 2 * test_every / n_objs * time_to_success(results['mean_rewards_new_obj'])
+    results['mean_rewards_per_episode_stacked'] = np.stack(results['mean_rewards_per_episode'], axis=0)
 
-    print(results['mean_lengths_per_episode_stacked'].shape, most_objs_time.shape)
+    results['mean_lengths_per_episode'] = results['mean_lengths_per_episode_stacked'].mean(axis=0)
+    results['mean_rewards_per_episode'] = results['mean_rewards_per_episode_stacked'].mean(axis=0)
+
+    results['std_lengths_per_episode'] = results['mean_lengths_per_episode_stacked'].std(axis=0)
+    results['std_rewards_per_episode'] = results['mean_rewards_per_episode_stacked'].std(axis=0)
+
+    # print(results['mean_lengths_per_episode_stacked'].shape, most_objs_time.shape)
+
     plt.figure()
     sns.tsplot(data=results['mean_lengths_per_episode_stacked'], time=most_objs_time)
-    plt.savefig(subfolder_path+"mean_lengths_per_episode_over{}_run.png".format(n_different_seed))
-    plt.close()
-
-    plt.figure()
-    sns.tsplot(data=results['mean_lengths_new_obj_stacked'], time=one_obj_time)
-    plt.savefig(subfolder_path+"mean_lengths_new_obj_over{}_run.png".format(n_different_seed))
+    plt.savefig(os.path.join(subfolder_path, "mean_lengths_per_episode_over{}_run.png".format(n_different_seed)))
     plt.close()
 
     plt.figure()
     sns.tsplot(data=results['mean_rewards_per_episode_stacked'], time=most_objs_time)
-    plt.savefig(subfolder_path+"mean_rewards_per_episode_over{}_run.png".format(n_different_seed))
+    plt.savefig(os.path.join(subfolder_path, "mean_rewards_per_episode_over{}_run.png".format(n_different_seed)))
     plt.close()
 
-    plt.figure()
-    sns.tsplot(data=results['mean_rewards_new_obj_stacked'], time=one_obj_time)
-    plt.savefig(subfolder_path+"mean_rewards_new_obj_over{}_run.png".format(n_different_seed))
-    plt.close()
+    np.save(os.path.join(subfolder_path, "mean_rewards_per_episode_stacked"), results['mean_rewards_per_episode_stacked'])
+    np.save(os.path.join(subfolder_path, "mean_lengths_per_episode_stacked"), results['mean_lengths_per_episode_stacked'])
 
-    np.save(subfolder_path+"mean_rewards_per_episode_stacked", results['mean_rewards_per_episode_stacked'])
-    np.save(subfolder_path+"mean_lengths_per_episode_stacked", results['mean_lengths_per_episode_stacked'])
+    ###### NEW OBJ : STATS'N PLOTS #####
+    #=================================
 
-    np.save(subfolder_path+"mean_rewards_new_obj_stacked", results['mean_rewards_new_obj_stacked'])
-    np.save(subfolder_path+"mean_lengths_new_obj_stacked", results['mean_lengths_new_obj_stacked'])
+    # If you have 20 objectives, no new obj possible.
+    try:
+        results['mean_lengths_new_obj_stacked'] = np.stack(results['mean_lengths_new_obj'], axis=0)
+        new_obj_test_is_available = True
+    except ValueError:
+        new_obj_test_is_available = False
+        print("No new_obj directory found, if there was 20 objectives during training, this is normal")
+
+    if new_obj_test_is_available:
+        one_obj_time = 2 * test_every / n_objs * np.array(range(len(results['mean_lengths_new_obj_stacked'][0])))
+
+        results['mean_lengths_new_obj_stacked'] = np.stack(results['mean_lengths_new_obj'], axis=0)
+        results['mean_rewards_new_obj_stacked'] = np.stack(results['mean_rewards_new_obj'], axis=0)
+
+        results['mean_lengths_new_obj'] = results['mean_lengths_new_obj_stacked'].mean(axis=0)
+        results['mean_rewards_new_obj'] = results['mean_rewards_new_obj_stacked'].mean(axis=0)
+
+        results['mean_mean_reward_new_obj'] = results['mean_lengths_new_obj'].mean()
+        results['mean_mean_length_new_obj'] = results['mean_rewards_new_obj'].mean()
+
+        results['std_lengths_new_obj'] = results['mean_lengths_new_obj_stacked'].std(axis=0)
+        results['std_rewards_new_obj'] = results['mean_rewards_new_obj_stacked'].std(axis=0)
+
+        results['std_lengths_new_obj'] = results['mean_lengths_new_obj_stacked'].std(axis=0)
+        results['std_rewards_new_obj'] = results['mean_rewards_new_obj_stacked'].std(axis=0)
+
+        # Add time to reach success_threshold as part of the results
+        results['time_to_success'] = test_every * time_to_success(results['mean_rewards_per_episode'])
+        results['time_to_success_new_obj'] = 2 * test_every / n_objs * time_to_success(results['mean_rewards_new_obj'])
+
+        plt.figure()
+        sns.tsplot(data=results['mean_lengths_new_obj_stacked'], time=one_obj_time)
+        plt.savefig(os.path.join(subfolder_path,"mean_lengths_new_obj_over{}_run.png".format(n_different_seed)))
+        plt.close()
+
+
+        plt.figure()
+        sns.tsplot(data=results['mean_rewards_new_obj_stacked'], time=one_obj_time)
+        plt.savefig(os.path.join(subfolder_path,"mean_rewards_new_obj_over{}_run.png".format(n_different_seed)))
+        plt.close()
+
+        np.save(os.path.join(subfolder_path,"mean_rewards_new_obj_stacked"), results['mean_rewards_new_obj_stacked'])
+        np.save(os.path.join(subfolder_path,"mean_lengths_new_obj_stacked"), results['mean_lengths_new_obj_stacked'])
 
     return results
+
 
 
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser('Log Parser arguments!')
 
-    parser.add_argument("-out_dir", type=str, help="Directory with one expe")
+    parser.add_argument("-out_dir", type=str, default='', help="Environment result directory (ex : out/multi_obj_test10every2")
     args = parser.parse_args()
 
     out_dir = args.out_dir
-    parse_env_subfolder(out_dir=out_dir)
-    try:
-        plot_best(env_dir=out_dir)
-    except:
-        print('Error encountered during plot_best')
+    if out_dir == '':
+        for out_dir in os.listdir('out/'):
+            env_path = os.path.join('out', out_dir)
+            if os.path.isfile(env_path):
+                continue
+            print("Parsing {}".format(env_path))
+            print("=============================")
+            parse_env_subfolder(out_dir=env_path)
+            plot_best(env_dir=env_path)
+            plot_best_per_model(env_dir=env_path)
+    else:
+        parse_env_subfolder(out_dir=out_dir)
+        try:
+            plot_best(env_dir=out_dir)
+        except:
+            print('Error encountered during plot_best')
+        plot_best_per_model(env_dir=out_dir)
+

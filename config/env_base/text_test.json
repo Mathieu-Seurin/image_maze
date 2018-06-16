@@ -1,17 +1,16 @@
 {
-  "name": "change_maze_10_random_image",
-  "seed": 42,
+  "name": "text_test",
   "env_type":
   {
     "n_row": 5,
     "n_col": 4,
+    "n_zone": 4,
     "state_type" : "surrounding",
-    "change_maze" : 10,
-    "maze_type" : "sequential",
+    "change_maze" : 0,
+    "maze_type" : "zone",
     "time_penalty" : false,
-    "use_normalization" : false,
     "objective" : {
-      "type" : "random_image",
+      "type" : "text",
       "curriculum":
       {
         "n_objective" : 2,
@@ -22,7 +21,7 @@
   },
   "train_params": {
     "epsilon_schedule": ["exp", 0.95],
-    "n_epochs" : 3000,
+    "n_epochs" : 5000,
     "test_every": 100,
     "n_epochs_test": 7
   },

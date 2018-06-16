@@ -6,7 +6,7 @@
     "n_row": 5,
     "n_col": 4,
     "state_type" : "surrounding",
-    "change_maze" : 0,
+    "change_maze" : 10,
     "maze_type" : "sequential",
     "time_penalty" : false,
     "use_normalization" : false,
@@ -22,7 +22,7 @@
   },
   "train_params": {
     "epsilon_schedule": ["exp", 0.95],
-    "n_epochs" : 2000,
+    "n_epochs" : 3000,
     "test_every": 100,
     "n_epochs_test": 7
   },

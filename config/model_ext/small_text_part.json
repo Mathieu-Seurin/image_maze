@@ -1,0 +1,21 @@
+{
+  "name": "small_text",
+
+  "agent_type":"resnet_dqn",
+  "images_features" : "normalized",
+
+    "film_gen_param_text":
+    {
+      "n_hidden_gamma" : 200,
+      "n_hidden_beta" : 200
+    },
+
+    "n_modulated_block": 2,
+    "n_regular_block": 0,
+
+    "n_hidden" : 100,
+
+    "word_emb_size" : 20,
+    "lstm_size" : 100
+
+}

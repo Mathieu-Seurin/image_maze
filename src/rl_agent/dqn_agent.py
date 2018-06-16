@@ -12,23 +12,36 @@ import random
 from .agent_utils import ReplayMemory, Transition, Flatten, check_params_changed, freeze_as_np_dict, compute_slow_params_update
 from .dqn_models import DQN
 import pickle
-from rl_agent.FiLM_agent import FilmedNet
+from rl_agent.FiLM_agent import FilmedNet, FilmedNetText
 
 import logging
 import os
 
 from .gpu_utils import use_cuda, FloatTensor, LongTensor, ByteTensor, Tensor
+from image_text_utils import TextToIds
+
 import os
 
 class DQNAgent(object):
-    def __init__(self, config, n_action, state_dim, is_multi_objective):
+    def __init__(self, config, n_action, state_dim, is_multi_objective, objective_type):
+
+        self.objective_is_text = 'text' in objective_type
 
         if config['agent_type'] == "resnet_dqn":
             config = config['resnet_dqn_params']
-            model = FilmedNet(config=config,
-                              n_actions=n_action,
-                              state_dim=state_dim,
-                              is_multi_objective=is_multi_objective)
+
+            if self.objective_is_text:
+                model = FilmedNetText(config=config,
+                                      n_actions=n_action,
+                                      state_dim=state_dim,
+                                      is_multi_objective=is_multi_objective)
+                self.text_to_vect = TextToIds()
+
+            else:
+                model = FilmedNet(config=config,
+                                  n_actions=n_action,
+                                  state_dim=state_dim,
+                                  is_multi_objective=is_multi_objective)
 
         elif config["agent_type"] == "dqn":
             config = config['dqn_params']
@@ -53,8 +66,8 @@ class DQNAgent(object):
         self.batch_size = config["batch_size"]
         self.soft_update = config["soft_update"]
 
-        logging.info('Model summary :')
-        logging.info(self.forward_model.forward)
+        # logging.info('Model summary :')
+        # logging.info(self.forward_model.forward)
 
     def apply_config(self, config):
         pass
@@ -79,10 +92,17 @@ class DQNAgent(object):
         if plop < epsilon:
             idx = np.random.randint(self.n_action)
         else:
-            # state is {"env_state" : img, "objective": img}
+            # state is {"env_state" : img, "objective": img/text}
             var_state = dict()
             var_state['env_state'] = Variable(FloatTensor(state['env_state']).unsqueeze(0), volatile=True)
-            var_state['objective'] = Variable(FloatTensor(state['objective']).unsqueeze(0), volatile=True)
+
+            if self.objective_is_text:
+                objective = self.text_to_vect.sentence_to_matrix(state['objective'])
+                objective = LongTensor(objective) # Long expected for int input
+            else:
+                objective = FloatTensor(state['objective']) # for image, use Float
+
+            var_state['objective'] = Variable(objective.unsqueeze(0), volatile=True)
             idx = self.forward_model(var_state).data.max(1)[1].cpu().numpy()[0]
 
         return idx
@@ -92,13 +112,20 @@ class DQNAgent(object):
         # state is {"env_state" : img, "objective": img}
         state_loc = FloatTensor(state['env_state'])
         next_state_loc = FloatTensor(next_state['env_state'])
-        objective = FloatTensor(state['objective'])
+
+        if self.objective_is_text:
+            objective = self.text_to_vect.sentence_to_matrix(state['objective'])
+        else:
+            objective = state['objective']
+
+        objective = FloatTensor(objective)
 
         # if self.concatenate_objective:
         #     state_loc = torch.cat((state_loc, FloatTensor(state['objective'])))
         #     next_state_loc = torch.cat((next_state_loc, FloatTensor(next_state['objective'])))
 
         objective = objective.unsqueeze(0)
+
         state = state_loc.unsqueeze(0)
         next_state = next_state_loc.unsqueeze(0)
         action = LongTensor([int(action)]).view((1, 1,))
@@ -114,11 +141,18 @@ class DQNAgent(object):
         transitions = self.memory.sample(batch_size)
         batch = Transition(*zip(*transitions))
 
-        state_batch = Variable(torch.cat(batch.state))
-        objective_batch = Variable(torch.cat(batch.objective))
+        state_batch = Variable(torch.cat(batch.state).type(Tensor))
 
-        action_batch = Variable(torch.cat(batch.action))
-        reward_batch = Variable(torch.cat(batch.reward))
+        if self.objective_is_text:
+            # Batchify : all sequence must have the same size, so you pad the dialogue with token
+            objective_batch = self.text_to_vect.pad_batch_sentence(batch.objective)
+            objective_batch = Variable(torch.cat(objective_batch).type(LongTensor))
+
+        else:
+            objective_batch = Variable(torch.cat(batch.objective).type(Tensor))
+
+        action_batch = Variable(torch.cat(batch.action).type(LongTensor))
+        reward_batch = Variable(torch.cat(batch.reward).type(Tensor))
 
         if len(state_batch.shape) == 3:
             state_batch = state_batch.unsqueeze(0)
@@ -131,13 +165,20 @@ class DQNAgent(object):
         state_action_values = self.forward_model(state_obj).gather(1, action_batch)
 
         non_final_mask = ByteTensor(tuple(map(lambda s: s is not None, batch.next_state)))
-        non_final_next_states = Variable(torch.cat([s for s in batch.next_state if s is not None]), volatile=True)
-        non_final_state_corresponding_objective = Variable(torch.cat([batch.objective[i] for i, s in enumerate(batch.next_state) if s is not None]), volatile=True)
+        non_final_next_states = Variable(torch.cat([s for s in batch.next_state if s is not None]).type(Tensor), volatile=True)
+
+        if self.objective_is_text:
+            objective_batch = [batch.objective[i] for i, s in enumerate(batch.next_state) if s is not None]
+            objective_batch = self.text_to_vect.pad_batch_sentence(objective_batch)
+            non_final_state_corresponding_objective = torch.cat(objective_batch).type(LongTensor)
+        else:
+            non_final_state_corresponding_objective = torch.cat([batch.objective[i] for i, s in enumerate(batch.next_state) if s is not None]).type(Tensor)
+
+        non_final_state_corresponding_objective = Variable(non_final_state_corresponding_objective, volatile=True)
 
         non_final_next_states_obj = dict()
         non_final_next_states_obj['env_state'] = non_final_next_states
         non_final_next_states_obj['objective'] = non_final_state_corresponding_objective
-
 
         if len(non_final_next_states.shape) == 3:
             non_final_next_states = non_final_next_states.unsqueeze(0)
@@ -161,7 +202,7 @@ class DQNAgent(object):
         if self.soft_update:
             self.ref_model.load_state_dict(compute_slow_params_update(self.ref_model, self.forward_model, self.tau))
 
-        #new_params = freeze_as_np_dict(self.forward_model.state_dict())
+        new_params = freeze_as_np_dict(self.forward_model.state_dict())
         #check_params_changed(old_params, new_params)
         return loss.data[0]
 

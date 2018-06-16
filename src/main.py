@@ -5,18 +5,11 @@ import argparse
 import logging
 import time
 from itertools import count
-import os
-
-from feature_maze import ImageFmapGridWorld
-
-from rl_agent.basic_agent import AbstractAgent
-from rl_agent.dqn_agent import DQNAgent
-from rl_agent.reinforce_agent import ReinforceAgent
-from config import load_config_and_logger, set_seed, save_stats
-import torch.optim as optim
 import torch
+
 import numpy as np
-from image_utils import make_video, make_eval_plot
+from config import load_config_and_logger, set_seed, save_stats
+from image_text_utils import make_video, make_eval_plot
 import os
 
 parser = argparse.ArgumentParser('Log Parser arguments!')
@@ -30,6 +23,7 @@ parser.add_argument("-display", type=str, help="Display images or not")
 parser.add_argument("-seed", type=int, default=0, help="Manually set seed when launching exp")
 parser.add_argument("-device", type=int, default=-1, help="Manually set GPU")
 
+args = parser.parse_args()
 
 # Change your current wd so it's located in image_maze not src
 current_wd_full = os.getcwd()
@@ -38,7 +32,6 @@ path, folder = os.path.split(current_wd_full)
 if folder != 'image_maze':
     os.chdir('../')
 
-args = parser.parse_args()
 # Load_config also creates logger inside (INFO to stdout, INFO to train.log)
 config, exp_identifier, save_path = load_config_and_logger(env_config_file=args.env_config,
                                                            model_config_file=args.model_config,
@@ -56,17 +49,22 @@ if args.device != -1:
 else:
     logging.info("Using default device from env")
 
+from feature_maze import ImageFmapGridWorld
+from rl_agent.basic_agent import AbstractAgent
+from rl_agent.dqn_agent import DQNAgent
+from rl_agent.reinforce_agent import ReinforceAgent
+
 
 verbosity = config["io"]["verbosity"]
 save_image = bool(config["io"]["num_epochs_to_store"])
 
-env = ImageFmapGridWorld(config=config["env_type"], pretrained_features=config["pretrained_features"], save_image=save_image)
+env = ImageFmapGridWorld(config=config["env_type"], features_type=config["images_features"], save_image=save_image)
 
 if config["agent_type"] == 'random':
     rl_agent = AbstractAgent(config, env.action_space())
     discount_factor = 0.95
 elif 'dqn' in config["agent_type"]:
-    rl_agent = DQNAgent(config, env.action_space(), env.state_objective_dim(), env.is_multi_objective)
+    rl_agent = DQNAgent(config, env.action_space(), env.state_objective_dim(), env.is_multi_objective, env.objective_type)
     discount_factor = config["resnet_dqn_params"]["discount_factor"]
 
 elif 'reinforce' in config["agent_type"]:
@@ -134,11 +132,16 @@ def train(agent, env):
         while not done and num_step < time_out:
             num_step += 1
             action = agent.forward(state, eps_range[epoch])
-            next_state, reward, done, _ = env.step(action)
+            next_state, reward, done, _info = env.step(action)
+
+            assert bool(reward) == bool(done), "Holy shit."
+            assert bool(reward) == bool(_info['agent_position'] == _info['reward_position']), "Epic Fail"
+
             loss = agent.optimize(state, action, next_state, reward)
             state = next_state
 
         agent.callback(epoch)
+        env.post_process()
 
     save_stats(save_path, reward_list, length_list)
 
@@ -157,18 +160,18 @@ def test(agent, env, config, num_test):
     number_epochs_to_store = config['io']['num_epochs_to_store']
 
     if obj_type == 'fixed':
-        test_objectives = [env.reward_position]
-    elif 'image' in obj_type:
-        # For now, test only on previously seen examples
-        test_objectives = env.objectives
+        train_objectives = [env.reward_position]
     else:
-        assert False, 'Objective {} not supported'.format(obj_type)
+        # For now, test only on previously seen examples
+        train_objectives = env.train_objectives
 
-    for num_objective, objective in enumerate(test_objectives):
+    for num_objective, objective in enumerate(train_objectives):
         logging.debug('Switching objective to {}'.format(objective))
+
         env.reward_position = objective
 
         for epoch in range(n_epochs_test):
+            assert env.reward_position == objective, "position changed, warning"
 
             # WARNING FREEZE COUNT SO THE MAZE DOESN'T CHANGE
             env.count_ep_in_this_maze = 0
@@ -188,7 +191,10 @@ def test(agent, env, config, num_test):
             while not done and num_step < time_out:
                 num_step += 1
                 action = agent.forward(state, 0.)
-                next_state, reward, done, _ = env.step(action)
+                next_state, reward, done, _info = env.step(action)
+
+                assert bool(reward) == bool(done), "Holy shit."
+                assert bool(reward) == bool(_info['agent_position'] == _info['reward_position']), "Epic Fail"
 
                 if epoch < number_epochs_to_store:
                     video.append(env.render(show=False))
@@ -201,7 +207,10 @@ def test(agent, env, config, num_test):
             lengths.append(len(epoch_rewards))
 
             if epoch < number_epochs_to_store:
-                make_video(video, save_path.format('test_{}_{}_{}'.format(num_test, num_objective, epoch)))
+                if 'text' in obj_type:
+                    make_video(video, save_path.format('test_{}_{}_{}'.format(num_test, num_objective, epoch)), state['objective'])
+                else:
+                    make_video(video, save_path.format('test_{}_{}_{}'.format(num_test, num_objective, epoch)), repr(_info))
 
     # Setting the model back into train mode (for dropout for example)
     agent.train()
@@ -289,15 +298,11 @@ def test_new_obj_learning(agent, env, config):
     if obj_type == 'fixed':
         # Do nothing for 'fixed' objective_type
         return
-    elif 'image' in obj_type:
-        # For now, test only on previously seen examples
-        test_objectives = env.test_objectives
     else:
-        assert False, 'Objective {} not supported'.format(obj_type)
+        test_objectives = env.test_objectives
 
-
-    n_epochs_new_obj = n_epochs // len(env.objectives) * 2
-    test_every_new_obj = test_every // len(env.objectives) * 2
+    n_epochs_new_obj = n_epochs // len(env.train_objectives) * 2
+    test_every_new_obj = test_every // len(env.train_objectives) * 2
 
     state_dict, saved_memory = agent.save_state()
     logging.info('Agent state saved')
