@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import os
 
 import torch
-from rl_agent.gpu_utils import FloatTensor, Tensor
+from rl_agent.gpu_utils import FloatTensor, Tensor, LongTensor
 from PIL import Image
 
 import nltk
@@ -70,9 +70,8 @@ class TextToIds(object):
     def pad(self, sentence, max_length):
         n_padding = max_length-sentence.size(1)
         if n_padding != 0:
-            padding = torch.ones(1,n_padding)*self.eos_id
+            padding = LongTensor(torch.ones(1,n_padding).numpy()*self.eos_id)
             sentence = torch.cat((sentence, padding), dim=1)
-
         return sentence
 
 
