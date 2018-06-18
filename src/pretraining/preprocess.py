@@ -14,7 +14,7 @@ import torchvision
 import torch.nn.functional as F
 from torchvision import datasets, models, transforms
 
-from image_text_utils  import normalize_image_for_saving, channel_first_to_channel_last, channel_last_to_channel_first
+from image_text_utils import normalize_image_for_saving, channel_first_to_channel_last, channel_last_to_channel_first
 
 use_cuda = torch.cuda.is_available()
 FloatTensor = torch.cuda.FloatTensor if use_cuda else torch.FloatTensor

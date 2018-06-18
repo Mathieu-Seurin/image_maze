@@ -118,6 +118,7 @@ def parse_env_subfolder(out_dir):
         # Summary for main experiment
         mean_mean_reward = results_sub['mean_mean_reward']
         mean_mean_length = results_sub['mean_mean_length']
+
         time_to_success = results_sub['time_to_success']
         results.append((name, subfolder, mean_mean_length, mean_mean_reward, time_to_success))
 
@@ -127,10 +128,8 @@ def parse_env_subfolder(out_dir):
         time_to_success_new_obj = results_sub['time_to_success_new_obj']
         results_new_obj.append((name, subfolder, mean_mean_length_new_obj, mean_mean_reward_new_obj, time_to_success_new_obj))
 
-
-
-    results.sort(key=lambda x:x[2])
-    results_new_obj.sort(key=lambda x:x[2])
+    results.sort(key=lambda x:x[3])
+    results_new_obj.sort(key=lambda x:x[3])
     print(results)
     print(results_new_obj)
 

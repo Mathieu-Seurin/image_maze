@@ -2,6 +2,7 @@
   "name": "dqn_filmed_pretrain",
 
   "agent_type":"resnet_dqn",
+
   "images_features" : "specific",
 
   "resnet_dqn_params":{
