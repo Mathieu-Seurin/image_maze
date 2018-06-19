@@ -12,8 +12,9 @@ from .agent_utils import check_params_changed, freeze_as_np_dict
 from .dqn_models import DQN, SoftmaxDQN
 import logging
 from copy import deepcopy
-from rl_agent.FiLM_agent import FilmedNet
+from rl_agent.FiLM_agent import FilmedNet, FilmedNetText
 import os
+from image_text_utils import TextToIds
 
 
 # GPU compatibility setup
@@ -36,13 +37,22 @@ Tensor = FloatTensor
 
 
 class ReinforceAgent(object):
-    def __init__(self, config, n_action, state_dim, is_multi_objective):
+    def __init__(self, config, n_action, state_dim, is_multi_objective, objective_type):
+        self.objective_is_text = 'text' in objective_type
         if config['agent_type'] == "resnet_reinforce":
             config = config['resnet_reinforce_params']
-            model = FilmedNet(config=config,
-                              n_actions=n_action,
-                              state_dim=state_dim,
-                              is_multi_objective=is_multi_objective)
+            if self.objective_is_text:
+                model = FilmedNetText(config=config,
+                                      n_actions=n_action,
+                                      state_dim=state_dim,
+                                      is_multi_objective=is_multi_objective)
+                self.text_to_vect = TextToIds()
+
+            else:
+                model = FilmedNet(config=config,
+                                  n_actions=n_action,
+                                  state_dim=state_dim,
+                                  is_multi_objective=is_multi_objective)
 
         elif config["agent_type"] == "reinforce":
             config = config['resnet_reinforce_params']
@@ -100,7 +110,14 @@ class ReinforceAgent(object):
             actions = LongTensor(self.actions_replay)
 
             env_states = Variable(torch.cat([s['env_state'] for s in self.states_replay]))
-            objectives = Variable(torch.cat([s['objective'] for s in self.states_replay]))
+
+            if self.objective_is_text:
+                # Batchify : all sequence must have the same size, so you pad the dialogue with token
+                objective_batch = [s['objective'] for s in self.states_replay]
+                objective_batch = self.text_to_vect.pad_batch_sentence(objective_batch)
+                objectives = Variable(torch.cat(objective_batch).type(LongTensor))
+            else:
+                objectives = Variable(torch.cat([s['objective'] for s in self.states_replay]))
 
             # print(env_states.shape, objectives.shape)
             # print(env_states.shape, objectives.shape, actions.shape)
@@ -109,7 +126,7 @@ class ReinforceAgent(object):
 
             full_log_probs = torch.log(F.softmax(self.forward_model(states), dim=1))
             entropy_loss = (torch.exp(full_log_probs) * full_log_probs).sum(dim=1).sum()
-            
+
 
             log_probs = full_log_probs.gather(1, Variable(actions.view(-1, 1))).squeeze(1)
             policy_loss = []
@@ -151,11 +168,20 @@ class ReinforceAgent(object):
     def train(self):
         self.forward_model.eval()
 
-    def forward(self, state, epsilon=0.1):
+    def forward(self, state, epsilon=0.1, already_embed=False):
         # Epsilon has no influence, keep it for compatibility
         state_loc = dict()
         state_loc['env_state'] = Variable(FloatTensor(state['env_state']).unsqueeze(0), volatile=True)
-        state_loc['objective'] = Variable(FloatTensor(state['objective']).unsqueeze(0), volatile=True)
+
+        if self.objective_is_text:
+            if not already_embed:
+                objective = self.text_to_vect.sentence_to_matrix(state['objective'])
+                objective = LongTensor(objective) # Long expected for int input
+            else:
+                objective = state['objective']
+        else:
+            objective = FloatTensor(state['objective']) # for image, use Float
+        state_loc['objective'] = Variable(objective.unsqueeze(0), volatile=True)
 
         probs = F.softmax(self.forward_model(state_loc), dim=1)
         m = Categorical(probs)
@@ -168,7 +194,12 @@ class ReinforceAgent(object):
         self.actions_epoch.append(action)
         state_loc = dict()
         state_loc['env_state'] = FloatTensor(state['env_state']).unsqueeze(0)
-        state_loc['objective'] = FloatTensor(state['objective']).unsqueeze(0)
+        if self.objective_is_text:
+            objective = self.text_to_vect.sentence_to_matrix(state['objective'])
+            objective = LongTensor(objective) # Long expected for int input
+        else:
+            objective = FloatTensor(state['objective']) # for image, use Float
+        state_loc['objective'] = objective.unsqueeze(0)
         self.states_epoch.append(state_loc)
         return self.last_loss
 

@@ -14,7 +14,7 @@ import torchvision
 import torch.nn.functional as F
 from torchvision import datasets, models, transforms
 
-from image_text_utils  import normalize_image_for_saving, channel_first_to_channel_last, channel_last_to_channel_first
+from image_text_utils import normalize_image_for_saving, channel_first_to_channel_last, channel_last_to_channel_first
 
 use_cuda = torch.cuda.is_available()
 FloatTensor = torch.cuda.FloatTensor if use_cuda else torch.FloatTensor
@@ -55,7 +55,7 @@ feature_extractor = CNNExtractor().cuda()
 feature_extractor.train(False)
 
 # Then, load the relevant part of the pretrained model (it contains the last layers)
-pretrained_dict = torch.load('pretrained_model.pth')
+pretrained_dict = torch.load('./pretrained_model.pth')
 model_dict = feature_extractor.state_dict()
 
 # Remove part of the key that was used because feature extractor was a submodule

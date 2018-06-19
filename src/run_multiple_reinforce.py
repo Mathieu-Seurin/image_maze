@@ -40,19 +40,21 @@ if test:
     # finished ones -> out of memory...
     # Try with only 6 exps total each time
 
+    env_config = ["text_large"]
     model_to_test = ['reinforce_filmed_pretrain']#,
     # model_to_test = ["reinforce_pretrain"]
 
     # _update_every_25 seems good
     # extension_to_test = ['reinforce_update_every_25']
 
-    extension_to_test = ['reinforce_entropy_penalty_0', 'reinforce_entropy_penalty_001']
+    # extension_to_test = ['reinforce_entropy_penalty_0', 'reinforce_entropy_penalty_001']
     # extension_to_test = ['reinforce_entropy_penalty_01', 'reinforce_entropy_penalty_02']
     # extension_to_test = ['reinforce_entropy_penalty_005', 'reinforce_entropy_penalty_05']
     # extension_to_test = ['reinforce_entropy_penalty_045', 'reinforce_entropy_penalty_055']
     # extension_to_test = ['reinforce_entropy_penalty_06']#, 'reinforce_entropy_penalty_04']
 
-    env_config = ["change_maze_10_random_image_no_bkg"]
+    extension_to_test = ['reinforce_bigger_text_part']
+    # env_config = ["change_maze_10_random_image_no_bkg"]
     env_ext = ["10_every_1_reinforce"]
 
     n_gpu = 1

@@ -68,7 +68,7 @@ elif 'dqn' in config["agent_type"]:
     discount_factor = config["resnet_dqn_params"]["discount_factor"]
 
 elif 'reinforce' in config["agent_type"]:
-    rl_agent = ReinforceAgent(config, env.action_space(), env.state_objective_dim(), env.is_multi_objective)
+    rl_agent = ReinforceAgent(config, env.action_space(), env.state_objective_dim(), env.is_multi_objective, env.objective_type)
     discount_factor = config["resnet_reinforce_params"]["discount_factor"]
 else:
     assert False, "Wrong agent type : {}".format(config["agent_type"])
@@ -102,7 +102,7 @@ def train(agent, env):
     for epoch in range(n_epochs):
         state = env.reset(show=False)
         done = False
-        time_out = 20
+        time_out = 40
         num_step = 0
 
         if epoch % test_every == 0:

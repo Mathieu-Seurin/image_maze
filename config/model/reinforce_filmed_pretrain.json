@@ -2,20 +2,26 @@
   "name": "reinforce_filmed_pretrain",
 
   "agent_type":"resnet_reinforce",
-  "image_features" : "specific",
+  "images_features" : "specific",
 
   "resnet_reinforce_params":{
-    "film_gen_params":
-      {
-        "n_intermediate_channel": 16,
-        "intermediate_kernel_size": 5,
+      "film_gen_param_vision":
+        {
+          "n_intermediate_channel": 16,
+          "intermediate_kernel_size": 0,
 
-        "n_final_channel": 32,
-        "final_kernel_size": 5,
+          "n_final_channel": 32,
+          "final_kernel_size": 5,
 
-        "n_hidden_gamma" : 400,
-        "n_hidden_beta" : 400,
-        "dropout" : 0
+          "n_hidden_gamma" : 400,
+          "n_hidden_beta" : 400,
+          "dropout" : 0
+        },
+
+      "film_gen_param_text":{
+          "n_hidden_gamma" : 200,
+          "n_hidden_beta" : 200,
+          "dropout" : 0
       },
     "learning_rate" : 1e-4,
     "optimizer": "rmsprop",
@@ -31,6 +37,6 @@
     "use_film" : true,
     "update_every": 25,
     "concatenate_objective" : false,
-    "entropy_penalty": 0.01
+    "entropy_penalty": 0.0
   }
 }
