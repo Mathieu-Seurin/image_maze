@@ -11,8 +11,9 @@ import argparse
 import numpy as np
 
 
+success_threshold = 0.65
+
 def time_to_success(averaged_curve):
-    success_threshold = 0.6
     tmp = np.where(averaged_curve > success_threshold)
     if tmp[0].shape == (0,):
         return len(averaged_curve)
@@ -125,9 +126,9 @@ def parse_env_subfolder(out_dir):
         mean_mean_reward_new_obj = results_sub['mean_mean_reward_new_obj']
         mean_mean_length_new_obj = results_sub['mean_mean_length_new_obj']
         time_to_success_new_obj = results_sub['time_to_success_new_obj']
-        results_new_obj.append((name, subfolder, mean_mean_length_new_obj, mean_mean_reward_new_obj, time_to_success_new_obj))
-
-
+        n_succeeded_new_objs = results_sub['number_of_succeeded_new_objs']
+        results_new_obj.append((name, subfolder, mean_mean_length_new_obj,
+            mean_mean_reward_new_obj, time_to_success_new_obj, n_succeeded_new_objs))
 
     results.sort(key=lambda x:x[2])
     results_new_obj.sort(key=lambda x:x[2])
@@ -139,8 +140,8 @@ def parse_env_subfolder(out_dir):
         summary_str += "{} {} {} {} {}\n".format(name, subfolder, length, reward, time)
 
     summary_str_new_obj = ''
-    for name, subfolder, length, reward, time in results_new_obj:
-        summary_str_new_obj += "{} {} {} {} {}\n".format(name, subfolder, length, reward, time)
+    for name, subfolder, length, reward, time, n_succ in results_new_obj:
+        summary_str_new_obj += "{} {} {} {} {} {}\n".format(name, subfolder, length, reward, time, n_succ)
 
     open(out_dir+"/summary", 'w').write(summary_str)
     open(out_dir+"/summary_new_obj", 'w').write(summary_str_new_obj)
@@ -159,6 +160,8 @@ def aggregate_sub_folder_res(subfolder_path):
 
     results['mean_lengths_new_obj'] = []
     results['mean_rewards_new_obj'] = []
+
+    results['mean_final_rewards_per_new_obj'] = []
 
     n_different_seed = 0
 
@@ -206,6 +209,11 @@ def aggregate_sub_folder_res(subfolder_path):
         # This is averaged over objs
         results['mean_lengths_new_obj'].append(np.mean(length_aggregator, axis=0))
         results['mean_rewards_new_obj'].append(np.mean(reward_aggregator, axis=0))
+
+        # For each new obj, use last 5 tests to determine final exit time
+        # Will be used for "Number of succeeded new objs"
+
+        results['mean_final_rewards_per_new_obj'].append(np.mean(reward_aggregator[:, -5:], axis=1).flatten())
 
 
     ###### LEARNING : STATS'N PLOTS #####
@@ -282,6 +290,9 @@ def aggregate_sub_folder_res(subfolder_path):
         results['time_to_success'] = test_every * time_to_success(results['mean_rewards_per_episode'])
         results['time_to_success_new_obj'] = 2 * test_every / n_objs * time_to_success(results['mean_rewards_new_obj'])
 
+        avg_rew_per_obj = np.stack(results['mean_final_rewards_per_new_obj'], axis=0).mean(axis=0)
+        results['number_of_succeeded_new_objs'] = np.sum(avg_rew_per_obj > success_threshold)
+
         plt.figure()
         sns.tsplot(data=results['mean_lengths_new_obj_stacked'], time=one_obj_time)
         plt.savefig(os.path.join(subfolder_path,"mean_lengths_new_obj_over{}_run.png".format(n_different_seed)))
@@ -325,4 +336,3 @@ if __name__ == "__main__":
         except:
             print('Error encountered during plot_best')
         plot_best_per_model(env_dir=out_dir)
-
