@@ -32,7 +32,7 @@ env_ext = ["5_every_1_reinforce", "10_every_1_reinforce", "15_every_1_reinforce"
 
 n_gpu = 1
 capacity_per_gpu = 3
-n_seed = 5
+n_seed = 10
 
 if test:
     # I get error when trying to refill the pool of active processes,
@@ -40,7 +40,7 @@ if test:
     # finished ones -> out of memory...
     # Try with only 6 exps total each time
 
-    env_config = ["text_large"]
+    # env_config = ["text_large"]
     model_to_test = ['reinforce_filmed_pretrain']#,
     # model_to_test = ["reinforce_pretrain"]
 
@@ -51,9 +51,9 @@ if test:
     # extension_to_test = ['reinforce_entropy_penalty_01', 'reinforce_entropy_penalty_02']
     # extension_to_test = ['reinforce_entropy_penalty_005', 'reinforce_entropy_penalty_05']
     # extension_to_test = ['reinforce_entropy_penalty_045', 'reinforce_entropy_penalty_055']
-    # extension_to_test = ['reinforce_entropy_penalty_06']#, 'reinforce_entropy_penalty_04']
+    extension_to_test = ['reinforce_entropy_penalty_06']#, 'reinforce_entropy_penalty_04']
 
-    extension_to_test = ['reinforce_bigger_text_part']
+    # extension_to_test = ['reinforce_bigger_text_part']
     # env_config = ["change_maze_10_random_image_no_bkg"]
     env_ext = ["10_every_1_reinforce"]
 

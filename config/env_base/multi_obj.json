@@ -1,5 +1,6 @@
 {
   "name": "multi_obj",
+  "success_threshold": 0.65,
   "env_type":
   {
     "n_row": 5,

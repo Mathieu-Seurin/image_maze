@@ -1,5 +1,6 @@
 {
   "name": "text_large",
+  "success_threshold": 0.45,
   "env_type":
   {
     "n_row": 5,

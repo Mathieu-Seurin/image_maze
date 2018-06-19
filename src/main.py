@@ -155,6 +155,11 @@ def test(agent, env, config, num_test):
     agent.eval()
     env.eval()
 
+    try:
+        os.makedirs(save_path.format('per_obj/'))
+    except FileExistsError:
+        pass
+
     lengths, rewards = [], []
     obj_type = config['env_type']['objective']['type']
     number_epochs_to_store = config['io']['num_epochs_to_store']
@@ -212,6 +217,13 @@ def test(agent, env, config, num_test):
                 else:
                     make_video(video, save_path.format('test_{}_{}_{}'.format(num_test, num_objective, epoch)), repr(_info))
 
+
+        with open(save_path.format('per_obj/obj' + str(num_objective) + '_rewards.txt'), 'a+') as f:
+            f.write("{}\n".format(np.mean(rewards)))
+
+        with open(save_path.format('per_obj/obj' + str(num_objective) + '_lengths.txt'), 'a+') as f:
+            f.write("{}\n".format(np.mean(lengths)))
+            
     # Setting the model back into train mode (for dropout for example)
     agent.train()
     env.train()

@@ -11,9 +11,11 @@ import argparse
 import numpy as np
 
 
-success_threshold = 0.65
+# This is the default if success_threshold not defined in config
+success_threshold_default = 0.65
 
-def time_to_success(averaged_curve):
+
+def time_to_success(averaged_curve, success_threshold=success_threshold_default):
     tmp = np.where(averaged_curve > success_threshold)
     if tmp[0].shape == (0,):
         return len(averaged_curve)
@@ -120,7 +122,8 @@ def parse_env_subfolder(out_dir):
         mean_mean_reward = results_sub['mean_mean_reward']
         mean_mean_length = results_sub['mean_mean_length']
         time_to_success = results_sub['time_to_success']
-        results.append((name, subfolder, mean_mean_length, mean_mean_reward, time_to_success))
+        n_succeeded_train_objs = results_sub['number_of_succeeded_train_objs']
+        results.append((name, subfolder, mean_mean_length, mean_mean_reward, time_to_success, n_succeeded_train_objs))
 
         # Summary for new_obj
         mean_mean_reward_new_obj = results_sub['mean_mean_reward_new_obj']
@@ -136,8 +139,8 @@ def parse_env_subfolder(out_dir):
     print(results_new_obj)
 
     summary_str = ''
-    for name, subfolder, length, reward, time in results:
-        summary_str += "{} {} {} {} {}\n".format(name, subfolder, length, reward, time)
+    for name, subfolder, length, reward, time, n_succ in results:
+        summary_str += "{} {} {} {} {} {}\n".format(name, subfolder, length, reward, time, n_succ)
 
     summary_str_new_obj = ''
     for name, subfolder, length, reward, time, n_succ in results_new_obj:
@@ -149,6 +152,13 @@ def parse_env_subfolder(out_dir):
 def aggregate_sub_folder_res(subfolder_path):
     # config_files.txt  config.json  eval_curve.png  last_10_std_length  last_10_std_reward  last_5_length.npy  last_5_reward.npy
     # length.npy  mean_length  mean_reward  model_name  reward.npy  train_lengths  train.log  train_rewards
+    try:
+        success_threshold = json.load(open(subfolder_path+"config.json", 'r'))['success_threshold']
+        print('Using config defined threshold {}'.format(success_threshold))
+    except KeyError:
+        success_threshold = success_threshold_default
+        print("Success threshold not defined in config, using default {}".format(success_threshold))
+
     results = dict()
     results['model_name'] = open(subfolder_path+"model_name", 'r').read()
 
@@ -162,6 +172,7 @@ def aggregate_sub_folder_res(subfolder_path):
     results['mean_rewards_new_obj'] = []
 
     results['mean_final_rewards_per_new_obj'] = []
+    results['mean_final_rewards_per_obj'] = []
 
     n_different_seed = 0
 
@@ -186,6 +197,28 @@ def aggregate_sub_folder_res(subfolder_path):
 
         results['mean_lengths_per_episode'].append(np.load(seed_dir+"length.npy"))
         results['mean_rewards_per_episode'].append(np.load(seed_dir+"reward.npy"))
+
+        #### PER OBJECTIVE STATS AGGREGATOR #######
+        #==========================================
+        # The outer loop averages over seeds, need to first average over objs
+        per_obj_dir = seed_dir + 'per_obj/'
+        try:
+            n_objs = len(np.unique([int(i.split('_')[0][3:]) for i in os.listdir(per_obj_dir)]))
+            for obj in range(n_objs):
+                if obj == 0:
+                    length_aggregator = np.loadtxt(per_obj_dir+"obj{}_lengths.txt".format(obj))
+                    reward_aggregator = np.loadtxt(per_obj_dir+"obj{}_rewards.txt".format(obj))
+                else:
+                    length_aggregator = np.vstack((length_aggregator, np.loadtxt(per_obj_dir+"obj{}_lengths.txt".format(obj))))
+                    reward_aggregator = np.vstack((reward_aggregator, np.loadtxt(per_obj_dir+"obj{}_rewards.txt".format(obj))))
+
+            # For each obj, use last 5 tests to determine final exit time
+            # Will be used for "Number of succeeded train objs"
+            results['mean_final_rewards_per_obj'].append(np.mean(reward_aggregator[:, -5:], axis=1).flatten())
+
+        except FileNotFoundError:
+            # "No per_obj directory found, if experiments before introducing per_obj/ this is normal")
+            pass
 
 
         #### NEW OBJECTIVES STATS AGGREGATOR #######
@@ -242,7 +275,12 @@ def aggregate_sub_folder_res(subfolder_path):
     results['std_lengths_per_episode'] = results['mean_lengths_per_episode_stacked'].std(axis=0)
     results['std_rewards_per_episode'] = results['mean_rewards_per_episode_stacked'].std(axis=0)
 
-    # print(results['mean_lengths_per_episode_stacked'].shape, most_objs_time.shape)
+    try:
+        avg_rew_per_obj = np.stack(results['mean_final_rewards_per_obj'], axis=0).mean(axis=0)
+        results['number_of_succeeded_train_objs'] = np.sum(avg_rew_per_obj > success_threshold)
+    except:
+        results['number_of_succeeded_train_objs'] = np.nan
+    results['time_to_success'] = test_every * time_to_success(results['mean_rewards_per_episode'], success_threshold)
 
     plt.figure()
     sns.tsplot(data=results['mean_lengths_per_episode_stacked'], time=most_objs_time)
@@ -287,9 +325,9 @@ def aggregate_sub_folder_res(subfolder_path):
         results['std_rewards_new_obj'] = results['mean_rewards_new_obj_stacked'].std(axis=0)
 
         # Add time to reach success_threshold as part of the results
-        results['time_to_success'] = test_every * time_to_success(results['mean_rewards_per_episode'])
-        results['time_to_success_new_obj'] = 2 * test_every / n_objs * time_to_success(results['mean_rewards_new_obj'])
+        results['time_to_success_new_obj'] = 2 * test_every / n_objs * time_to_success(results['mean_rewards_new_obj'], success_threshold)
 
+        # Add number of achieved new objs
         avg_rew_per_obj = np.stack(results['mean_final_rewards_per_new_obj'], axis=0).mean(axis=0)
         results['number_of_succeeded_new_objs'] = np.sum(avg_rew_per_obj > success_threshold)
 

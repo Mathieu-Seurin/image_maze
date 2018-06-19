@@ -1,5 +1,6 @@
 {
   "name": "change_maze_10_random_image_no_bkg",
+  "success_threshold": 0.65,
   "seed": 42,
   "env_type":
   {
