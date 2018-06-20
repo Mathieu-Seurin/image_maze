@@ -409,14 +409,16 @@ class ImageFmapGridWorld(object):
 
                 count_zone = 0
                 for i in range(zone_per_row):
-                    color_str = np_color_to_str(default_background[:, i*4, 0]) # x 4 is to have a bigger change of color
+                    bg_color = default_background[:, i*4, 0] # x4 is to have a bigger change of color
 
-                    line = np.array([[{'zone': count_zone, 'color': color_str, 'label': j * self.n_col + i} for i in range(self.n_col)] for j in range(self.n_row)])
+                    line = np.array([[{'zone': count_zone, 'color': bg_color, 'label': j * self.n_col + i} for i in range(self.n_col)] for j in range(self.n_row)])
+                    count_zone += 1
+
                     for j in range(1,zone_per_col):
-                        count_zone += 1
-                        color_str = np_color_to_str(default_background[:, i*4,j*4]) # x 4 is to have a bigger change of color
+                        bg_color = default_background[:, i*4,j*4] # x4 is to have a bigger change of color
 
-                        line = np.concatenate((line, np.array([[{'zone': count_zone, 'color': color_str, 'label': j * self.n_col + i} for i in range(self.n_col)] for j in range(self.n_row)])), axis=1)
+                        line = np.concatenate((line, np.array([[{'zone': count_zone, 'color': bg_color, 'label': j * self.n_col + i} for i in range(self.n_col)] for j in range(self.n_row)])), axis=1)
+                        count_zone += 1
 
 
                     if self.grid_label_color is None:
@@ -424,7 +426,7 @@ class ImageFmapGridWorld(object):
                     else:
                         self.grid_label_color = np.concatenate((self.grid_label_color, line),axis=0)
 
-                assert count_zone == self.n_zone
+                assert count_zone == self.n_zone, "Problem in number of zone : count {}    self.n_zone {}".format(count_zone, self.n_zone)
 
             self.n_row = self.n_row * zone_per_row
             self.n_col = self.n_col * zone_per_col

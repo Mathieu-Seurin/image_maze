@@ -68,7 +68,7 @@ elif 'dqn' in config["agent_type"]:
     discount_factor = config["resnet_dqn_params"]["discount_factor"]
 
 elif 'reinforce' in config["agent_type"]:
-    rl_agent = ReinforceAgent(config, env.action_space(), env.state_objective_dim(), env.is_multi_objective)
+    rl_agent = ReinforceAgent(config, env.action_space(), env.state_objective_dim(), env.is_multi_objective, env.objective_type)
     discount_factor = config["resnet_reinforce_params"]["discount_factor"]
 
 elif config['agent_type'] == 'perfect':
@@ -107,7 +107,7 @@ def train(agent, env):
     for epoch in range(n_epochs):
         state = env.reset(show=False)
         done = False
-        time_out = 20
+        time_out = 40
         num_step = 0
 
         if epoch % test_every == 0:
@@ -159,6 +159,11 @@ def test(agent, env, config, num_test):
     # Setting the model into test mode (for dropout for example)
     agent.eval()
     env.eval()
+
+    try:
+        os.makedirs(save_path.format('per_obj/'))
+    except FileExistsError:
+        pass
 
     lengths, rewards = [], []
     obj_type = config['env_type']['objective']['type']
@@ -217,6 +222,13 @@ def test(agent, env, config, num_test):
                 else:
                     make_video(video, save_path.format('test_{}_{}_{}'.format(num_test, num_objective, epoch)), repr(_info))
 
+
+        with open(save_path.format('per_obj/obj' + str(num_objective) + '_rewards.txt'), 'a+') as f:
+            f.write("{}\n".format(np.mean(rewards)))
+
+        with open(save_path.format('per_obj/obj' + str(num_objective) + '_lengths.txt'), 'a+') as f:
+            f.write("{}\n".format(np.mean(lengths)))
+            
     # Setting the model back into train mode (for dropout for example)
     agent.train()
     env.train()

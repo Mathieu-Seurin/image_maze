@@ -1,5 +1,6 @@
 {
-  "name": "text_small",
+  "name": "text_small_easy",
+  "success_threshold": 0.65,
   "env_type":
   {
     "n_row": 3,
@@ -11,6 +12,8 @@
     "time_penalty" : false,
     "objective" : {
       "type" : "text",
+      "text_difficulty" : "easy",
+
       "curriculum":
       {
         "n_objective" : 2,
@@ -21,7 +24,7 @@
   },
   "train_params": {
     "epsilon_schedule": ["exp", 0.95],
-    "n_epochs" : 10000,
+    "n_epochs" : 5000,
     "test_every": 100,
     "n_epochs_test": 7
   },

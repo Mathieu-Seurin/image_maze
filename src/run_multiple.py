@@ -2,7 +2,7 @@ import subprocess
 from subprocess import Popen
 from itertools import product
 import os
-
+import time
 from parse_dir import parse_env_subfolder, plot_best, plot_best_per_model
 
 test = False
@@ -25,21 +25,21 @@ extension_to_test = ["soft_update0_1", "soft_update0_01", "soft_update0_001", "h
 #extension_to_test = ["small_text_part", "bigger_text_part", "bigger_vision", "smaller_everything", "no_head"]
 
 
-env_config = ["text_single_modality", "text_single_mod_hard"]
-env_ext = ["20obj_every2", "15obj_every2"]
+env_config = ["text_small_easy", "text_small_easy_gradient"]
+env_ext = ["20obj_every2"]
 
-n_gpu = 4
 capacity_per_gpu = 6
 n_seed = 5
 
-if test:
+#GPU_AVAILABLE = [0,1]
+GPU_AVAILABLE = [0,1,2,3]
+n_gpu = len(GPU_AVAILABLE)
 
+if test:
     model_to_test = ['dqn_filmed_pretrain']
     extension_to_test = ['soft_update0_01', 'soft_update0_1']
-
     env_config = ["multi_obj_test"]
     env_ext = ["10obj_every2"]
-
     n_gpu = 1
     n_seed = 3
 
@@ -65,16 +65,18 @@ for expe_num in range(n_gpu*capacity_per_gpu):
     model_config = model_folder+command_param['model']
     model_ext = model_ext_folder+command_param['model_ext']
     seed = command_param['seed']
-    device_to_use = int(expe_num%n_gpu)
+    device_to_use = GPU_AVAILABLE[expe_num%n_gpu]
 
     command = general_command.format(env_file, env_ext_file, model_config, model_ext, device_to_use, seed)
     processes.append(Popen(command, shell=True, env=os.environ.copy(), stderr=STDOUT))
 
 print("{} expes remains at the moment".format(len(all_commands)))
 remains_command = len(all_commands) > 0
-while remains_command:
 
+while remains_command:
     for expe_num, expe in enumerate(processes):
+
+        # todo : keep index number so you use the good device
         if expe.poll() is not None:
             try:
                 command_param = all_commands.pop()
@@ -89,10 +91,12 @@ while remains_command:
             model_config = model_folder + command_param['model']
             model_ext = model_ext_folder + command_param['model_ext']
             seed = command_param['seed']
-            device_to_use = int(expe_num % n_gpu)
+            device_to_use = GPU_AVAILABLE[expe_num % n_gpu]
 
             command = general_command.format(env_file, env_ext_file, model_config, model_ext, device_to_use, seed)
             processes[expe_num] = Popen(command, shell=True, env=os.environ.copy(), stderr=STDOUT)
+
+    time.sleep(5)
 
 for expe in processes:
     expe.wait()

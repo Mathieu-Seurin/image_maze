@@ -1,5 +1,6 @@
 {
   "name": "change_maze_10_full_black_and_white",
+  "success_threshold": 0.65,
   "seed": 42,
   "env_type":
   {

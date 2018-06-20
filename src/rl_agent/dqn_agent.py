@@ -59,6 +59,7 @@ class DQNAgent(object):
             self.ref_model.cuda()
         self.n_action = n_action
 
+        # todo : put this in config
         self.memory = ReplayMemory(10000)
         self.discount_factor = self.forward_model.discount_factor
 

@@ -11,6 +11,8 @@
     "time_penalty" : false,
     "objective" : {
       "type" : "text",
+      "text_difficulty" : "hard",
+
       "curriculum":
       {
         "n_objective" : 2,

@@ -1,5 +1,5 @@
 {
-  "name": "basic_reinforce",
+  "name": "reinforce_pretrain",
   "agent_type":"reinforce",
 
   "images_features" : "specific",
@@ -13,9 +13,10 @@
     "optimizer": "rmsprop",
     "use_batch_norm": false,
     "discount_factor": 0.9,
-    "update_every": 200,
+    "update_every": 25,
     "concatenate_objective" : true,
-    "use_first_block": false
+    "use_first_block": false,
+    "entropy_penalty": 0.01
   }
 
 }

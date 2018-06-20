@@ -55,7 +55,7 @@ feature_extractor = CNNExtractor().cuda()
 feature_extractor.train(False)
 
 # Then, load the relevant part of the pretrained model (it contains the last layers)
-pretrained_dict = torch.load('pretrained_model.pth')
+pretrained_dict = torch.load('./pretrained_model.pth')
 model_dict = feature_extractor.state_dict()
 
 # Remove part of the key that was used because feature extractor was a submodule
