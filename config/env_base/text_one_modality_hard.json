@@ -1,16 +1,17 @@
 {
-  "name": "text_large",
+  "name": "text_one_modality_hard",
   "env_type":
   {
     "n_row": 5,
     "n_col": 4,
-    "n_zone": 4,
+    "n_zone": 1,
     "state_type" : "surrounding",
     "change_maze" : 0,
-    "maze_type" : "zone",
+    "maze_type" : "sequential",
     "time_penalty" : false,
     "objective" : {
       "type" : "text",
+      "text_difficulty" : "hard",
       "curriculum":
       {
         "n_objective" : 2,
@@ -21,7 +22,7 @@
   },
   "train_params": {
     "epsilon_schedule": ["exp", 0.95],
-    "n_epochs" : 10000,
+    "n_epochs" : 3000,
     "test_every": 100,
     "n_epochs_test": 7
   },

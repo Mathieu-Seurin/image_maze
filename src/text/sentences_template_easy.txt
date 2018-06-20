@@ -1,0 +1,3 @@
+zone {color} object {object}
+zone {color} object {object}
+zone {color} object {object}

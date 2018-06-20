@@ -6,16 +6,8 @@ import time
 import matplotlib
 import matplotlib.pyplot as plt
 import os
-from torchvision.transforms import ToTensor, ToPILImage
-import torch
-import torch.nn as nn
-import torch.optim as optim
-from torch.autograd import Variable
-import torchvision
-import torch.nn.functional as F
-from torchvision import datasets, models, transforms
+
 from image_text_utils import channel_first_to_channel_last, channel_last_to_channel_first, load_image_or_fmap, np_color_to_str, TextObjectiveGenerator
-from rl_agent.gpu_utils import use_cuda, FloatTensor, LongTensor, ByteTensor, Tensor
 
 # For debugging, not actually necessary
 def plot_single_image(im):
@@ -122,11 +114,21 @@ class ImageFmapGridWorld(object):
                 self.get_objective = self.get_current_objective
 
             elif 'text' in self.objective_type:
-                self.text_objective_generator = TextObjectiveGenerator(self.background_color_used)
+
+                if config["objective"]['text_difficulty'] == "easy":
+                    sentence_file = "sentences_template_easy.txt"
+                    print("Loading easy sentences")
+                elif config["objective"]['text_difficulty'] == "hard":
+                    sentence_file = "sentences_template_full.txt"
+                    print("Loading hard sentences")
+
+                self.text_objective_generator = TextObjectiveGenerator(self.grid_type, self.n_zone, sentence_file=sentence_file)
 
             # Number of objectives / frequency of change
-            self.max_objectives = 25 # to avoid having 100 objective for bigger maze
             self.n_objectives = config["objective"]["curriculum"]["n_objective"]
+
+            self.max_objectives = self.n_objectives + 10 # to avoid having 100 objective for bigger maze
+
             self.is_multi_objective = self.n_objectives > 1
             self.objective_changing_every = config["objective"]["curriculum"]["change_every"]
 
@@ -154,11 +156,12 @@ class ImageFmapGridWorld(object):
         state = dict()
         state["env_state"] = self.get_env_state()
         state["objective"] = self.get_objective()
+        state["info"] = dict([('reward_position', self.reward_position),('agent_position', self.agent_position)])
         return state
 
     def get_current_objective(self):
         x,y = self._reward_position
-        return Tensor(self.grid[x,y])
+        return self.grid[x,y]
 
     def get_objective(self):
 
@@ -192,8 +195,8 @@ class ImageFmapGridWorld(object):
 
     def _create_text_objective(self):
         x,y = self._reward_position
-        color, label = self.grid_label_color[x,y]['color'], self.grid_label_color[x,y]['label']
-        text_objective = self.text_objective_generator.sample(color=color, label=label)
+        label, zone = self.grid_label_color[x,y]['label'], self.grid_label_color[x,y]['zone']
+        text_objective = self.text_objective_generator.sample(label=label, zone=zone)
         return text_objective
 
 
@@ -240,13 +243,13 @@ class ImageFmapGridWorld(object):
                 reward -= wrong_action_penalty
             else:
                 current_x = x_
-        elif action == 2:  # EAST
+        elif action == 2:  # WEST
             y_ = max(0, current_y-1)
             if y_ == current_y:
                 reward -= wrong_action_penalty
             else:
                 current_y = y_
-        elif action == 3:  # WEST
+        elif action == 3:  # EAST
             y_ = min(self.n_col-1, current_y+1)
             if y_ == current_y:
                 reward -= wrong_action_penalty
@@ -300,9 +303,7 @@ class ImageFmapGridWorld(object):
         else:
             all_directions_obs.append(np.zeros(all_directions_obs[0].shape))
 
-        all_directions_obs = [Tensor(obs) for obs in all_directions_obs]
-
-        return torch.cat(all_directions_obs, 0)
+        return np.concatenate(all_directions_obs, axis=0)
 
     def _get_reward_no_penalty(self):
         if np.all(self.agent_position == self._reward_position):
@@ -352,73 +353,100 @@ class ImageFmapGridWorld(object):
 
     def create_grid_of_image(self, show=False):
 
+        default_background = np.ones((3, 10, 8)) * 255
+        default_background[0, :, :] = np.tile(np.linspace(0, 255, 8),(10, 1))  # 8 and 10 are the max value for n_col and n_row
+        default_background[2, :, :] = np.tile(np.linspace(255, 0, 10),(8, 1)).T  # 8 and 10 are the max value for n_col and n_row
+
         # Define your type of grid
         # Either sequential or per zone
         # The important part is self.grid_label_color
         if "sequential" in self.grid_type:
 
-            self.grid = np.zeros((self.n_row, self.n_col)+self.features_shape)
+            if not self.use_background_for_state:
+                default_background *= 0
 
-            background = np.ones((3, 5, 4))*255
-            if self.use_background_for_state:
-                background[0, :, :] = np.tile(np.linspace(0, 255, 4), (5, 1))
-                background[2, :, :] = np.tile(np.linspace(255, 0, 5), (4, 1)).T
-            else:
-                background *= 0
-
+            self.n_zone = 1
             # Create a grid where you indicated for each cell : it's color and the label associated
             # np_color_to_str is in image_utils (converting np.array to a string corresponding to RGB color)
-            self.grid_label_color = np.array([[{'color': np_color_to_str(background[:, j, i]), 'label': j * self.n_col + i} for i in range(self.n_col)] for j in range(self.n_row)])
+            self.grid_label_color = np.array([[{'zone' : 0, 'color': default_background[:, j, i], 'label': j * self.n_col + i} for i in range(self.n_col)] for j in range(self.n_row)])
 
+
+        # ======================= ZONE (TEXT MAZE) ========================
+        # =================================================================
         elif "zone" in self.grid_type:
 
             zone_per_row = int(np.sqrt(self.n_zone))
             zone_per_col = int(np.sqrt(self.n_zone))
 
-            default_background = np.ones((3, 5, 4))*255
-            default_background[0, :, :] = np.tile(np.linspace(0, 255, 4), (5, 1))
-            default_background[2, :, :] = np.tile(np.linspace(255, 0, 5), (4, 1)).T
+            row_per_zone = self.n_row
+            col_per_zone = self.n_col
 
-            self.background_color_used = []
+            tot_row = row_per_zone * zone_per_row
+            tot_col = col_per_zone * zone_per_col
 
-            self.grid_label_color = None
-            for x in range(zone_per_row):
-                color_str = np_color_to_str(default_background[:, x, 0])
-                self.background_color_used.append(color_str)
 
-                line = np.array([[{'color': color_str, 'label': j * self.n_col + i} for i in range(self.n_col)] for j in range(self.n_row)])
-                for y in range(1,zone_per_col):
-                    color_str = np_color_to_str(default_background[:, x,y])
-                    self.background_color_used.append(color_str)
 
-                    line = np.concatenate((line, np.array([[{'color': color_str, 'label': j * self.n_col + i} for i in range(self.n_col)] for j in range(self.n_row)])), axis=1)
+            if self.grid_type == "zone_color_gradient":
 
-                if self.grid_label_color is None:
-                    self.grid_label_color = line
-                else:
-                    self.grid_label_color = np.concatenate((self.grid_label_color, line),axis=0)
+                self.grid_label_color = np.empty((tot_row, tot_col), dtype=object)
+                for i in range(tot_row):
+                    for j in range(tot_col):
+                        self.grid_label_color[i,j] = dict()
+                        self.grid_label_color[i, j]['color'] = default_background[:, i, j]
+                        pos_x, pos_y = i % row_per_zone, j % col_per_zone
+                        current_label = pos_x * self.n_col + pos_y
+                        self.grid_label_color[i, j]['label'] = current_label
 
+                        current_zone = i//row_per_zone*zone_per_col + j//col_per_zone
+                        self.grid_label_color[i, j]['zone'] = current_zone
+                        pass
+
+                assert not np.any(self.grid_label_color==None), "Grid not full, there are some None values"
+
+            else:
+
+                self.grid_label_color = None
+
+                count_zone = 0
+                for i in range(zone_per_row):
+                    color_str = np_color_to_str(default_background[:, i*4, 0]) # x 4 is to have a bigger change of color
+
+                    line = np.array([[{'zone': count_zone, 'color': color_str, 'label': j * self.n_col + i} for i in range(self.n_col)] for j in range(self.n_row)])
+                    for j in range(1,zone_per_col):
+                        count_zone += 1
+                        color_str = np_color_to_str(default_background[:, i*4,j*4]) # x 4 is to have a bigger change of color
+
+                        line = np.concatenate((line, np.array([[{'zone': count_zone, 'color': color_str, 'label': j * self.n_col + i} for i in range(self.n_col)] for j in range(self.n_row)])), axis=1)
+
+
+                    if self.grid_label_color is None:
+                        self.grid_label_color = line
+                    else:
+                        self.grid_label_color = np.concatenate((self.grid_label_color, line),axis=0)
+
+                assert count_zone == self.n_zone
 
             self.n_row = self.n_row * zone_per_row
             self.n_col = self.n_col * zone_per_col
 
-            self.grid = np.zeros((self.n_row, self.n_col)+self.features_shape)
 
+
+        self.grid = np.zeros((self.n_row, self.n_col)+self.features_shape)
 
         # Based on what you indicate above, create the maze
         self.grid_plot = np.zeros((self.n_row, self.n_col, 28, 28, 3))
         for i in range(self.n_row):
             for j in range(self.n_col):
 
-                label = self.grid_label_color[i,j]['label']
-                color = self.grid_label_color[i,j]['color']
+                current_label = self.grid_label_color[i,j]['label']
+                color = np_color_to_str(self.grid_label_color[i,j]['color'])
                 last_chosen_file = None
 
                 if self.save_image:
-                    path_to_image_raw = self.path_to_maze_images.format(label, color, 'raw')
+                    path_to_image_raw = self.path_to_maze_images.format(current_label, color, 'raw')
                     self.grid_plot[i,j], last_chosen_file = load_image_or_fmap(path_to_images=path_to_image_raw)
 
-                path_to_image = self.path_to_maze_images.format(label, color, self.features_type)
+                path_to_image = self.path_to_maze_images.format(current_label, color, self.features_type)
                 img, _ = load_image_or_fmap(path_to_images=path_to_image,last_chosen_file=last_chosen_file)
                 self.grid[i, j] = img
                 assert not (np.isclose(self.grid[i,j], np.zeros(self.features_shape)).all()), "Grid is still zero, problem"

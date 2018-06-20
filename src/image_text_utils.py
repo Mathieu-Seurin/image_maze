@@ -78,25 +78,35 @@ class TextToIds(object):
 
 class TextObjectiveGenerator(object):
 
-    def __init__(self, colors_used):
+    def __init__(self, zone_type, n_zone, sentence_file):
 
-        assert len(colors_used) <= 4, "At the moment, can only create 4 zone, so 4 colors"
+        assert n_zone <= 4, "At the moment, can only create 4 zones"
         self.path_to_text = 'src/text/'
         self.vocabulary_path = os.path.join(self.path_to_text, 'vocabulary.pkl')
 
         self.all_labels = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven','eight', 'nine',
                       'tshirt', 'trouser', 'pullover', 'dress', 'coat', 'sandal', 'shirt', 'sneaker', 'bag', 'ankleboot']
 
-        all_colors_list = ['cyan', 'ligthcyan', 'palegreen', 'palegreenligth']
+        if zone_type == 'zone':
+            zone_name = ['cyan', 'ligthcyan', 'palegreen', 'lightpalegreen']
+        elif zone_type == 'zone_color_gradient' :
+            zone_name = ['downleft', 'downright', 'upleft', 'upright']
+        elif zone_type == 'sequential': # NO ZONE
+            zone_name = ['here']
+        else:
+            assert False, "Problem of grid type, can be zone or 'zone_color_gradient'"
+
         self.tokenize = TokenizeStemSentence()
 
         # Token like : begin of sentence, end of sentence etc ...
         self.special_tokens = ['eos']
 
-        self.all_colors_converter = dict((key, value) for key,value in zip(colors_used, all_colors_list))
-        self.color_readable_used = all_colors_list[:len(self.all_colors_converter)]
+        self.text2zone_str = zone_name
+        self.zone_readable_used = zone_name[:len(self.text2zone_str)]
 
         self.all_sentences_template = []
+
+        self.sentence_file = sentence_file
         self.load_sentences()
 
         # if os.path.exists(self.vocabulary_path):
@@ -105,20 +115,20 @@ class TextObjectiveGenerator(object):
         self.build_vocabulary()
 
 
-    def sample(self, label, color):
+    def sample(self, label, zone):
         rand_sentence = random.choice(self.all_sentences_template)
 
         #convert label number to the actual name of the class
         object_str = self.all_labels[label]
-        color_readable = self.all_colors_converter[color]
+        zone_readable = self.text2zone_str[zone]
 
-        sentence_formatted = rand_sentence.format(object=object_str, color=color_readable)
+        sentence_formatted = rand_sentence.format(object=object_str, color=zone_readable)
         return sentence_formatted
 
     def load_sentences(self):
 
         self.all_sentences_template = []
-        with open(os.path.join(self.path_to_text, 'sentences_template.txt')) as sentences_file:
+        with open(os.path.join(self.path_to_text, self.sentence_file)) as sentences_file:
             for sentence in sentences_file.readlines():
                 sentence = sentence.replace('\n', '')
                 self.all_sentences_template.append((sentence))
@@ -135,7 +145,7 @@ class TextObjectiveGenerator(object):
 
         sentence_word = set(sentence_word)
         self.all_words = all_words.union(sentence_word)
-        self.all_words = self.all_words.union(self.color_readable_used)
+        self.all_words = self.all_words.union(self.zone_readable_used)
 
         self.all_words = self.all_words.union(set(self.special_tokens))
 
@@ -166,8 +176,8 @@ def normalize_image_for_saving(img):
 def load_image_or_fmap(path_to_images, last_chosen_file=None):
 
     if last_chosen_file:
-        file_path = os.path.join(path_to_images, last_chosen_file+'.tch')
-        img = torch.load(file_path).type(Tensor)
+        file_path = os.path.join(path_to_images, last_chosen_file+'.npy')
+        img = np.load(file_path)
         return img, None
 
     all_files = [f for f in os.listdir(path_to_images) if os.path.isfile(os.path.join(path_to_images, f))]
@@ -178,7 +188,7 @@ def load_image_or_fmap(path_to_images, last_chosen_file=None):
         img = Image.open(image_path)
         return img, chosen_file.split('.')[0]
     else:
-        img = torch.load(image_path).type(Tensor)
+        img = np.load(image_path)
     return img, None
 
 

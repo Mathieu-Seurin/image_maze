@@ -50,7 +50,7 @@ else:
     logging.info("Using default device from env")
 
 from feature_maze import ImageFmapGridWorld
-from rl_agent.basic_agent import AbstractAgent
+from rl_agent.basic_agent import AbstractAgent, PerfectAgent
 from rl_agent.dqn_agent import DQNAgent
 from rl_agent.reinforce_agent import ReinforceAgent
 
@@ -62,7 +62,7 @@ env = ImageFmapGridWorld(config=config["env_type"], features_type=config["images
 
 if config["agent_type"] == 'random':
     rl_agent = AbstractAgent(config, env.action_space())
-    discount_factor = 0.95
+    discount_factor = 0.90
 elif 'dqn' in config["agent_type"]:
     rl_agent = DQNAgent(config, env.action_space(), env.state_objective_dim(), env.is_multi_objective, env.objective_type)
     discount_factor = config["resnet_dqn_params"]["discount_factor"]
@@ -70,6 +70,11 @@ elif 'dqn' in config["agent_type"]:
 elif 'reinforce' in config["agent_type"]:
     rl_agent = ReinforceAgent(config, env.action_space(), env.state_objective_dim(), env.is_multi_objective)
     discount_factor = config["resnet_reinforce_params"]["discount_factor"]
+
+elif config['agent_type'] == 'perfect':
+    rl_agent = PerfectAgent(config, env.action_space())
+    discount_factor = config["discount_factor"]
+
 else:
     assert False, "Wrong agent type : {}".format(config["agent_type"])
 

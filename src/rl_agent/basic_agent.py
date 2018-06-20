@@ -5,7 +5,7 @@ class AbstractAgent(object):
     def __init__(self, config, n_action):
         self.n_action = n_action
 
-    def forward(self, n_action, *args, **kwargs):
+    def forward(self, *args, **kwargs):
         return np.random.randint(0, self.n_action)
 
     def optimize(self, *args, **kwargs):
@@ -20,11 +20,11 @@ class AbstractAgent(object):
         # epochs are done here
         pass
 
-    def save_state(self, folder):
+    def save_state(self):
         # Store the whole agent state somewhere
-        pass
+        return None, None
 
-    def load_state(self, folder, memory=None):
+    def load_state(self, dict_state, memory=None):
         # Retrieve the whole agent state somewhere
         pass
 
@@ -33,3 +33,33 @@ class AbstractAgent(object):
 
     def train(self):
         pass
+
+
+class PerfectAgent(AbstractAgent):
+    def __init__(self, config, n_action):
+        super(PerfectAgent, self).__init__(config, n_action)
+
+    def forward(self, state, *args, **kwargs):
+
+        reward_position = state['info']['reward_position']
+        state_position = state['info']['agent_position']
+
+        diff_x = reward_position[0] - state_position[0]
+        diff_y = reward_position[1] - state_position[1]
+
+        action = None
+
+        if diff_x > 0:
+            action = 0 # North
+        elif diff_x < 0:
+            action = 1 # South
+
+        if diff_y > 0:
+            action = 3 # West
+        elif diff_y < 0:
+            action = 2 # East
+
+        assert action is not None, "Perfect agent is not so perfect."
+
+        return action
+

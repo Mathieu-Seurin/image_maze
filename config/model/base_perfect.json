@@ -1,0 +1,8 @@
+{
+  "name": "base_perfect",
+
+  "images_features": "normalized",
+
+  "agent_type":"perfect",
+  "discount_factor": 0.90
+}

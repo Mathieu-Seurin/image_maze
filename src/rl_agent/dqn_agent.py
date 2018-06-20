@@ -59,7 +59,7 @@ class DQNAgent(object):
             self.ref_model.cuda()
         self.n_action = n_action
 
-        self.memory = ReplayMemory(4096)
+        self.memory = ReplayMemory(10000)
         self.discount_factor = self.forward_model.discount_factor
 
         self.tau = config['tau']
@@ -118,13 +118,11 @@ class DQNAgent(object):
         else:
             objective = state['objective']
 
-        objective = FloatTensor(objective)
+        objective = FloatTensor(objective).unsqueeze(0)
 
         # if self.concatenate_objective:
         #     state_loc = torch.cat((state_loc, FloatTensor(state['objective'])))
         #     next_state_loc = torch.cat((next_state_loc, FloatTensor(next_state['objective'])))
-
-        objective = objective.unsqueeze(0)
 
         state = state_loc.unsqueeze(0)
         next_state = next_state_loc.unsqueeze(0)

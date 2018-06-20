@@ -141,14 +141,14 @@ def generate_one_folder(X=None, y=None, dataset_colors=None, folder=None):
             tmp = tmp / 255.
 
             normalized_img = normalize_image_for_saving(tmp)
-            torch.save(torch.FloatTensor(normalized_img).cpu(), folder + '/{}/{}/normalized/{}.tch'.format(y[i], color_str, i))
+            np.save(folder + '/{}/{}/normalized/{}.npy'.format(y[i], color_str, i), torch.FloatTensor(normalized_img).cpu().numpy())
 
             # Normalize to match model pretraining
             tmp = tmp - 0.5
 
             fmap = feature_extractor(Variable(FloatTensor(tmp).unsqueeze(0), volatile=True))
-            fmap = fmap.data.squeeze(0).cpu()
-            torch.save(fmap, folder + '/{}/{}/specific/{}.tch'.format(y[i], color_str, i))
+            fmap = fmap.data.squeeze(0).cpu().numpy()
+            np.save(folder + '/{}/{}/specific/{}.npy'.format(y[i], color_str, i), fmap)
 
             #todo : image_net resnet save
     #    blob[i] = fmap
@@ -178,11 +178,13 @@ X_test_maze, X_test_obj, y_test_maze, y_test_obj = train_test_split(X_test,
                                 y_test, test_size=0.33, random_state=42)
 
 # Colors as in maze
-background = np.ones((3, 5, 4))
-background[0, :, :] = np.tile(np.linspace(0, 1, 4), (5, 1))
-background[2, :, :] = np.tile(np.linspace(1, 0, 5), (4, 1)).T
+n_row = 10
+n_col = 8
+background = np.ones((3, n_row, n_col))
+background[0, :, :] = np.tile(np.linspace(0, 1, n_col), (n_row, 1))
+background[2, :, :] = np.tile(np.linspace(1, 0, n_row), (n_col, 1)).T
 
-maze_colors = [background[:, cat // 4, cat % 4] * 255 for cat in range(20)]
+maze_colors = [background[:, cat // n_col, cat % n_col] * 255 for cat in range(n_row*n_col)]
 
 # Add black background
 maze_colors.append(np.array([0,0,0]))

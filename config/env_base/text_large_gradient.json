@@ -1,5 +1,5 @@
 {
-  "name": "text_large",
+  "name": "text_large_color_gradient",
   "env_type":
   {
     "n_row": 5,
@@ -7,7 +7,7 @@
     "n_zone": 4,
     "state_type" : "surrounding",
     "change_maze" : 0,
-    "maze_type" : "zone",
+    "maze_type" : "zone_color_gradient",
     "time_penalty" : false,
     "objective" : {
       "type" : "text",

@@ -283,6 +283,10 @@ class TextFilmGen(nn.Module):
             self.hidden_layer_beta = lambda x: x  # Identity
             self.n_hidden_beta = input_size
 
+        if config['common_layer'] is True:
+            self.n_hidden_beta = self.n_hidden_gamma
+            self.hidden_layer_beta = self.hidden_layer_gamma
+
         # compute gammas and betas
         self.fc_gammas = nn.Linear(self.n_hidden_gamma, self.n_features_to_modulate)
         self.fc_betas = nn.Linear(self.n_hidden_beta, self.n_features_to_modulate)
