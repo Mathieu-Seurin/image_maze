@@ -262,7 +262,6 @@ class TextFilmGen(nn.Module):
         self.dropout = config['dropout']
 
         # todo : one common layer ??
-
         # Add hidden layer (and dropout) before computing gammas and betas
         if self.n_hidden_gamma > 0:
             hidden_layer_gamma = nn.Linear(input_size, self.n_hidden_gamma)
@@ -319,7 +318,7 @@ class FilmedNetText(nn.Module):
         self.pool_kernel_size_head = config["head_pool_kernel"]
 
         # Text_encoding params
-        self.embedding_size = config['word_emb_size']
+        self.word_embedding_size = config['word_emb_size']
         self.lstm_size = config['lstm_size']
 
         # dimensions are (len_seq, vocab_size) for one sentence
@@ -362,13 +361,13 @@ class FilmedNetText(nn.Module):
 
             self.modulated_blocks.append(current_modulated_resblock)
 
-        if self.embedding_size > 0:
-            self.word_embedding = nn.Embedding(self.vocab_size, self.embedding_size)
+        if self.word_embedding_size > 0:
+            self.word_embedding = nn.Embedding(self.vocab_size, self.word_embedding_size)
         else:
             # todo : one hot encoding
             raise NotImplementedError("Word embedding is needed.")
 
-        self.lstm = nn.LSTM(input_size=self.embedding_size,
+        self.lstm = nn.LSTM(input_size=self.word_embedding_size,
                             hidden_size=self.lstm_size,
                             num_layers=1,
                             batch_first=True)
@@ -385,8 +384,24 @@ class FilmedNetText(nn.Module):
         in_features = self.conv_output_size()
 
         # If you don't use film, the mlp has to deal with the image features AND text features
+        # How do you fuse them ? (concatenation, dot-product, attention)
         if not self.use_film:
-            in_features += self.lstm_size
+
+            if config['fusing_method'] == 'concatenate':
+                in_features += self.lstm_size
+                self.fuse = self.concatenate_text_vision
+
+            elif config['fusing_method'] == 'dot':
+                self.embedding_size_before_dot = config['embedding_size_before_dot']
+                self.visual_embedding_before_dot = nn.Linear(in_features, self.embedding_size_before_dot)
+                self.text_embedding_before_dot = nn.Linear(self.lstm_size, self.embedding_size_before_dot)
+                self.fuse = self.dot_product_text_vision
+
+                in_features = self.embedding_size_before_dot
+
+            elif config['fusing_method'] == 'attention':
+                # todo attention mechanisms
+                raise NotImplementedError("Attention is not available at the moment")
 
         self.fc1 = nn.Linear(in_features=in_features, out_features=self.n_hidden)
         self.fc2 = nn.Linear(in_features=self.n_hidden, out_features=self.n_actions)
@@ -433,9 +448,9 @@ class FilmedNetText(nn.Module):
         x = F.max_pool2d(x, kernel_size=self.pool_kernel_size_head)
         x = x.view(x.size(0), -1)
 
-        #concatenate
+        # fusing text and images
         if not self.use_film:
-            x = torch.cat((x, text_state), dim=1)
+            x = self.fuse(text=text_state, vision=x)
 
         x = F.relu(self.fc1(x))
         x = F.dropout(x, p=self.fc_dropout, training=self.training)
@@ -460,6 +475,14 @@ class FilmedNetText(nn.Module):
         conv_out_shape = tmp.shape
 
         return conv_out_shape[1] * conv_out_shape[2] * conv_out_shape[3]
+
+    def concatenate_text_vision(self, text, vision):
+        return torch.cat((vision, text), dim=1)
+
+    def dot_product_text_vision(self, text, vision):
+        text = self.visual_embedding_before_dot(text)
+        vision = self.text_embedding_before_dot(vision)
+        return text*vision
 
 
 

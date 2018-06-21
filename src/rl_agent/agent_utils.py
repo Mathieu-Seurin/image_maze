@@ -1,6 +1,7 @@
 import numpy as np
 from collections import namedtuple
 
+import torch
 import torch.nn as nn
 import random
 import logging

@@ -25,8 +25,8 @@ extension_to_test = ["soft_update0_1", "soft_update0_01", "soft_update0_001", "h
 #extension_to_test = ["small_text_part", "bigger_text_part", "bigger_vision", "smaller_everything", "no_head"]
 
 
-env_config = ["text_small_easy", "text_small_easy_gradient"]
-env_ext = ["20obj_every2"]
+env_config = ["text_medium_easy", "text_medium_easy_gradient"]
+env_ext = ["15obj_every2", "25obj_every2", "35obj_every2"]
 
 capacity_per_gpu = 6
 n_seed = 5
@@ -45,6 +45,7 @@ if test:
 
 
 seeds = [i for i in range(n_seed)]
+# Todo : change this ugly command to Processes.
 general_command = "python3 src/main.py -env_config {}.json -env_extension {}.json -model_config {}.json -model_extension {}.json -device {} -seed {}"
 
 #Fill queue with all your expe

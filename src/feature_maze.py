@@ -121,6 +121,8 @@ class ImageFmapGridWorld(object):
                 elif config["objective"]['text_difficulty'] == "hard":
                     sentence_file = "sentences_template_full.txt"
                     print("Loading hard sentences")
+                else:
+                    raise NotImplementedError("{} mode doesn't exist".format(config['objective']['text_difficulty']))
 
                 self.text_objective_generator = TextObjectiveGenerator(self.grid_type, self.n_zone, sentence_file=sentence_file)
 
