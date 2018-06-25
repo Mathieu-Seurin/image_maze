@@ -22,13 +22,29 @@ def override_config_recurs(config, config_extension):
 
     return config
 
+def compute_epsilon_schedule(config, n_epochs):
+    epsilon_schedule = config["epsilon_schedule"][0]
+    epsilon_init = config["epsilon_schedule"][1]
+
+    if epsilon_schedule == 'linear':
+        eps_range = np.linspace(epsilon_init, 0., n_epochs)
+    elif epsilon_schedule=='constant':
+        eps_range = [epsilon_init for _ in range(n_epochs)]
+    elif epsilon_schedule=='exp':
+        eps_decay = n_epochs / 4.
+        eps_range = [epsilon_init * np.exp(-1. * i / eps_decay) for i in range(n_epochs)]
+    else:
+        raise NotImplementedError("Wrong type of epsilon-greedy schedule")
+
+    return eps_range
+
 def load_single_config(config_file):
     with open(config_file, 'rb') as f_config:
         config_str = f_config.read().decode('utf-8')
         config = json.loads(config_str)
     return config, config_str
 
-def load_config_and_logger(env_config_file, model_config_file, exp_dir,
+def load_config_and_logger(env_config_file, model_config_file, exp_dir, seed,
                            args=None,
                            env_ext_file=None,
                            model_ext_file=None):
@@ -57,7 +73,6 @@ def load_config_and_logger(env_config_file, model_config_file, exp_dir,
     config = env_config
 
     # set seed
-    seed = args.seed
     set_seed(seed)
 
     # Compute unique identifier based on those configs

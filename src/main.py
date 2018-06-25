@@ -5,97 +5,75 @@ import argparse
 import logging
 import time
 from itertools import count
-import torch
 
 import numpy as np
-from config import load_config_and_logger, set_seed, save_stats
+from config import load_config_and_logger, set_seed, save_stats, compute_epsilon_schedule
 from image_text_utils import make_video, make_eval_plot
 import os
+import sys
 
-parser = argparse.ArgumentParser('Log Parser arguments!')
+import torch
 
-parser.add_argument("-exp_dir", type=str, default="out", help="Directory with one expe")
-parser.add_argument("-env_config", type=str, help="Which file correspond to the experiment you want to launch ?")
-parser.add_argument("-model_config", type=str, help="Which file correspond to the experiment you want to launch ?")
-parser.add_argument("-env_extension", type=str, help="Do you want to override parameters in the env file ?")
-parser.add_argument("-model_extension", type=str, help="Do you want to override parameters in the model file ?")
-parser.add_argument("-display", type=str, help="Display images or not")
-parser.add_argument("-seed", type=int, default=0, help="Manually set seed when launching exp")
-parser.add_argument("-device", type=int, default=-1, help="Manually set GPU")
+def full_train_test(env_config, model_config, env_extension, model_extension, exp_dir, seed=0, device=-1, args=None):
 
-args = parser.parse_args()
+    # Load_config also creates logger inside (INFO to stdout, INFO to train.log)
+    config, exp_identifier, save_path = load_config_and_logger(env_config_file=env_config,
+                                                               model_config_file=model_config,
+                                                               env_ext_file=env_extension,
+                                                               model_ext_file=model_extension,
+                                                               args=args,
+                                                               exp_dir=exp_dir,
+                                                               seed=seed
+                                                               )
+    
+    logger = logging.getLogger()
 
-# Change your current wd so it's located in image_maze not src
-current_wd_full = os.getcwd()
-path, folder = os.path.split(current_wd_full)
+    if device != -1:
+        torch.cuda.set_device(device)
+        logger.info("Using device {}".format(torch.cuda.current_device()))
+    else:
+        logger.info("Using default device from env")
 
-if folder != 'image_maze':
-    os.chdir('../')
+    from feature_maze import ImageFmapGridWorld
+    from rl_agent.basic_agent import AbstractAgent, PerfectAgent
+    from rl_agent.dqn_agent import DQNAgent
+    from rl_agent.reinforce_agent import ReinforceAgent
 
-# Load_config also creates logger inside (INFO to stdout, INFO to train.log)
-config, exp_identifier, save_path = load_config_and_logger(env_config_file=args.env_config,
-                                                           model_config_file=args.model_config,
-                                                           env_ext_file=args.env_extension,
-                                                           model_ext_file=args.model_extension,
-                                                           args=args,
-                                                           exp_dir=args.exp_dir
-                                                           )
+    verbosity = config["io"]["verbosity"]
+    save_image = bool(config["io"]["num_epochs_to_store"])
 
-logging = logging.getLogger()
+    env = ImageFmapGridWorld(config=config["env_type"], features_type=config["images_features"], save_image=save_image)
 
-if args.device != -1:
-    torch.cuda.set_device(args.device)
-    logging.info("Using device {}".format(torch.cuda.current_device()))
-else:
-    logging.info("Using default device from env")
+    if config["agent_type"] == 'random':
+        rl_agent = AbstractAgent(config, env.action_space())
+        discount_factor = 0.90
+        return test(agent=rl_agent,
+                    env=env,
+                    test_number=1,
+                    discount_factor=discount_factor,
+                    save_path=save_path)
 
-from feature_maze import ImageFmapGridWorld
-from rl_agent.basic_agent import AbstractAgent, PerfectAgent
-from rl_agent.dqn_agent import DQNAgent
-from rl_agent.reinforce_agent import ReinforceAgent
+    elif 'dqn' in config["agent_type"]:
+        rl_agent = DQNAgent(config, env.action_space(), env.state_objective_dim(), env.is_multi_objective, env.objective_type)
+        discount_factor = config["resnet_dqn_params"]["discount_factor"]
 
+    elif 'reinforce' in config["agent_type"]:
+        rl_agent = ReinforceAgent(config, env.action_space(), env.state_objective_dim(), env.is_multi_objective, env.objective_type)
+        discount_factor = config["resnet_reinforce_params"]["discount_factor"]
 
-verbosity = config["io"]["verbosity"]
-save_image = bool(config["io"]["num_epochs_to_store"])
+    elif config['agent_type'] == 'perfect':
+        rl_agent = PerfectAgent(config, env.action_space())
+        discount_factor = config["discount_factor"]
 
-env = ImageFmapGridWorld(config=config["env_type"], features_type=config["images_features"], save_image=save_image)
+    else:
+        assert False, "Wrong agent type : {}".format(config["agent_type"])
 
-if config["agent_type"] == 'random':
-    rl_agent = AbstractAgent(config, env.action_space())
-    discount_factor = 0.90
-elif 'dqn' in config["agent_type"]:
-    rl_agent = DQNAgent(config, env.action_space(), env.state_objective_dim(), env.is_multi_objective, env.objective_type)
-    discount_factor = config["resnet_dqn_params"]["discount_factor"]
+    n_epochs = config["train_params"]["n_epochs"]
+    test_every = config["train_params"]["test_every"]
+    eps_range = compute_epsilon_schedule(config['train_params'], n_epochs)
 
-elif 'reinforce' in config["agent_type"]:
-    rl_agent = ReinforceAgent(config, env.action_space(), env.state_objective_dim(), env.is_multi_objective, env.objective_type)
-    discount_factor = config["resnet_reinforce_params"]["discount_factor"]
-
-elif config['agent_type'] == 'perfect':
-    rl_agent = PerfectAgent(config, env.action_space())
-    discount_factor = config["discount_factor"]
-
-else:
-    assert False, "Wrong agent type : {}".format(config["agent_type"])
-
-
-n_epochs = config["train_params"]["n_epochs"]
-epsilon_schedule = config["train_params"]["epsilon_schedule"][0]
-epsilon_init = config["train_params"]["epsilon_schedule"][1]
-test_every = config["train_params"]["test_every"]
-n_epochs_test = config["train_params"]["n_epochs_test"]
-
-do_zero_shot_test = False
-do_new_obj_dynamics = True
-
-def train(agent, env):
-    if epsilon_schedule == 'linear':
-        eps_range = np.linspace(epsilon_init, 0., n_epochs)
-    elif epsilon_schedule=='constant':
-        eps_range = [epsilon_init for _ in range(n_epochs)]
-    elif epsilon_schedule=='exp':
-        eps_decay = n_epochs / 4.
-        eps_range = [epsilon_init * np.exp(-1. * i / eps_decay) for i in range(n_epochs)]
+    do_zero_shot_test = False
+    do_new_obj_dynamics = True
 
     logging.info(" ")
     logging.info("Begin Training")
@@ -111,7 +89,13 @@ def train(agent, env):
         num_step = 0
 
         if epoch % test_every == 0:
-            reward, length = test(agent, env, config, epoch)
+            reward, length = test(agent=rl_agent,
+                                  env=env,
+                                  config=config,
+                                  test_number=epoch,
+                                  discount_factor=discount_factor,
+                                  save_path=save_path)
+
             logging.info("Epoch {} test : averaged reward {:.2f}, average length {:.2f}".format(epoch, reward, length))
 
             with open(save_path.format('train_lengths'), 'a+') as f:
@@ -123,7 +107,13 @@ def train(agent, env):
             make_eval_plot(save_path.format('train_lengths'), save_path.format('eval_curve.png'))
             make_eval_plot(save_path.format('train_rewards'), save_path.format('eval_curve_rew.png'))
             if do_zero_shot_test :
-                reward, length = test_zero_shot(agent, env, config, epoch)
+                reward, length = test_zero_shot(agent=rl_agent,
+                                                env=env,
+                                                config=config,
+                                                test_number=epoch,
+                                                save_path=save_path,
+                                                discount_factor=discount_factor)
+
                 logging.info("Epoch {} zero-shot test : averaged reward {:.2f}, average length {:.2f}".format(epoch, reward, length))
 
                 with open(save_path.format('zero_shot_lengths'), 'a+') as f:
@@ -136,29 +126,35 @@ def train(agent, env):
 
         while not done and num_step < time_out:
             num_step += 1
-            action = agent.forward(state, eps_range[epoch])
+            action = rl_agent.forward(state, eps_range[epoch])
             next_state, reward, done, _info = env.step(action)
 
             assert bool(reward) == bool(done), "Holy shit."
             assert bool(reward) == bool(_info['agent_position'] == _info['reward_position']), "Epic Fail"
 
-            loss = agent.optimize(state, action, next_state, reward)
+            loss = rl_agent.optimize(state, action, next_state, reward)
             state = next_state
 
-        agent.callback(epoch)
+        rl_agent.callback(epoch)
         env.post_process()
 
     save_stats(save_path, reward_list, length_list)
 
     if do_new_obj_dynamics:
-        test_new_obj_learning(agent, env, config)
+        test_new_obj_learning(agent=rl_agent,
+                              env=env,
+                              config=config,
+                              discount_factor=discount_factor,
+                              save_path=save_path)
 
 
-def test(agent, env, config, num_test):
+def test(agent, env, config, test_number, discount_factor, save_path):
 
     # Setting the model into test mode (for dropout for example)
     agent.eval()
     env.eval()
+
+    n_epochs_test = config["train_params"]["n_epochs_test"]
 
     try:
         os.makedirs(save_path.format('per_obj/'))
@@ -218,9 +214,9 @@ def test(agent, env, config, num_test):
 
             if epoch < number_epochs_to_store:
                 if 'text' in obj_type:
-                    make_video(video, save_path.format('test_{}_{}_{}'.format(num_test, num_objective, epoch)), state['objective'])
+                    make_video(video, save_path.format('test_{}_{}_{}'.format(test_number, num_objective, epoch)), state['objective'])
                 else:
-                    make_video(video, save_path.format('test_{}_{}_{}'.format(num_test, num_objective, epoch)), repr(_info))
+                    make_video(video, save_path.format('test_{}_{}_{}'.format(test_number, num_objective, epoch)), repr(_info))
 
 
         with open(save_path.format('per_obj/obj' + str(num_objective) + '_rewards.txt'), 'a+') as f:
@@ -236,7 +232,7 @@ def test(agent, env, config, num_test):
     return np.mean(rewards), np.mean(lengths)
 
 
-def test_zero_shot(agent, env, config, num_test):
+def test_zero_shot(agent, env, config, discount_factor, test_number, save_path):
     # Do it only once after fully training the model, otherwise will be
     # ridiculously slow
 
@@ -247,6 +243,7 @@ def test_zero_shot(agent, env, config, num_test):
     lengths, rewards = [], []
     obj_type = config['env_type']['objective']['type']
     number_epochs_to_store = config['io']['num_epochs_to_store']
+    n_epochs_test = config["train_params"]["n_epochs_test"]
 
     if obj_type == 'fixed':
         # Do nothing for 'fixed' objective_type
@@ -291,7 +288,7 @@ def test_zero_shot(agent, env, config, num_test):
             lengths.append(len(epoch_rewards))
 
             if epoch < number_epochs_to_store:
-                make_video(video, save_path.format('test_zero_shot_{}_{}_{}'.format(num_test, num_objective, epoch)))
+                make_video(video, save_path.format('test_zero_shot_{}_{}_{}'.format(test_number, num_objective, epoch)))
 
     # Setting the model back into train mode (for dropout for example)
     agent.train()
@@ -300,13 +297,16 @@ def test_zero_shot(agent, env, config, num_test):
     return np.mean(rewards), np.mean(lengths)
 
 
-def test_new_obj_learning(agent, env, config):
+def test_new_obj_learning(agent, env, config, discount_factor, save_path):
     # Use train images for the learning phase, test on test as usual
     env.train()
 
     lengths, rewards = [], []
     obj_type = config['env_type']['objective']['type']
     number_epochs_to_store = config['io']['num_epochs_to_store']
+
+    n_epochs = config["train_params"]["n_epochs"]
+    test_every = config["train_params"]["test_every"]
 
     logging.info(" ")
     logging.info("Begin new_obj_learning evaluation")
@@ -331,13 +331,7 @@ def test_new_obj_learning(agent, env, config):
         agent.load_state(state_dict, saved_memory)
         logging.info('Agent state loaded')
 
-        if epsilon_schedule == 'linear':
-            eps_range = np.linspace(epsilon_init, 0., n_epochs_new_obj)
-        elif epsilon_schedule=='constant':
-            eps_range = [epsilon_init for _ in range(n_epochs_new_obj)]
-        elif epsilon_schedule=='exp':
-            eps_decay = n_epochs_new_obj / 4.
-            eps_range = [epsilon_init * np.exp(-1. * i / eps_decay) for i in range(n_epochs_new_obj)]
+        eps_range = compute_epsilon_schedule(config['train_params'], n_epochs_new_obj)
 
         reward_list = []
         length_list = []
@@ -399,7 +393,34 @@ def test_new_obj_learning(agent, env, config):
     # TODO : actually implement this...
     # make_averaged_curve(save_path.format('new_obj/{}'))
 
-if config['agent_type'] != 'random':
-    train(rl_agent, env)
-else:
-    print(test(rl_agent, env))
+
+if __name__ == '__main__':
+
+    parser = argparse.ArgumentParser('Log Parser arguments!')
+
+    parser.add_argument("-exp_dir", type=str, default="out", help="Directory with one expe")
+    parser.add_argument("-env_config", type=str, help="Which file correspond to the experiment you want to launch ?")
+    parser.add_argument("-model_config", type=str, help="Which file correspond to the experiment you want to launch ?")
+    parser.add_argument("-env_extension", type=str, help="Do you want to override parameters in the env file ?")
+    parser.add_argument("-model_extension", type=str, help="Do you want to override parameters in the model file ?")
+    parser.add_argument("-display", type=str, help="Display images or not")
+    parser.add_argument("-seed", type=int, default=0, help="Manually set seed when launching exp")
+    parser.add_argument("-device", type=int, default=-1, help="Manually set GPU")
+
+    args = parser.parse_args()
+
+    # # Change your current wd so it's located in image_maze not src
+    # current_wd_full = os.getcwd()
+    # path, folder = os.path.split(current_wd_full)
+    #
+    # if folder != 'image_maze':
+    #     os.chdir('../')
+
+    full_train_test(env_config=args.env_config,
+                    env_extension=args.env_extension,
+                    model_config=args.model_config,
+                    model_extension=args.model_extension,
+                    device=args.device,
+                    seed=args.seed,
+                    exp_dir=args.exp_dir)
+
