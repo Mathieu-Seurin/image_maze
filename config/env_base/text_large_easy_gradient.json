@@ -1,5 +1,5 @@
 {
-  "name": "text_large_color_gradient",
+  "name": "text_large_easy_gradient",
   "env_type":
   {
     "n_row": 5,
@@ -11,7 +11,7 @@
     "time_penalty" : false,
     "objective" : {
       "type" : "text",
-      "text_difficulty" : "hard",
+      "text_difficulty" : "easy",
 
       "curriculum":
       {

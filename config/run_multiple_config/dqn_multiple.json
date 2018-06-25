@@ -18,8 +18,8 @@
 
   "env_config":
   [
-    "text_medium_easy",
-    "text_medium_easy_gradient"
+    "text_large_easy",
+    "text_large_easy_gradient"
   ],
 
   "env_ext" :

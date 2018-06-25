@@ -1,5 +1,5 @@
 {
-  "name": "text_large",
+  "name": "text_large_easy",
   "success_threshold": 0.45,
   "env_type":
   {
@@ -12,7 +12,7 @@
     "time_penalty" : false,
     "objective" : {
       "type" : "text",
-      "text_difficulty" : "hard",
+      "text_difficulty" : "easy",
 
       "curriculum":
       {
