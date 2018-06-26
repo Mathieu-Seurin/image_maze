@@ -53,17 +53,28 @@ def plot_selected(env_dir, selected_list, name_spec='', horizontal_scaling=False
 
     plt.figure()
     for model_num, (reward_mean_per_ep, model_name) in enumerate(all_model_reward_mean_per_ep):
-        print(reward_mean_per_ep.shape, model_name)
+        # print(reward_mean_per_ep.shape, model_name)
         if np.any(most_objs_time):
-            print(len(most_objs_time))
-        sns.tsplot(data=reward_mean_per_ep, condition=model_name, color=palette[model_num], time=most_objs_time)
-
+            if reward_mean_per_ep.shape[1] < len(most_objs_time):
+                print(len(most_objs_time[:reward_mean_per_ep.shape[1]]), reward_mean_per_ep.shape)
+                sns.tsplot(data=reward_mean_per_ep, condition=model_name, color=palette[model_num], time=most_objs_time[:reward_mean_per_ep.shape[1]])
+            else:
+                sns.tsplot(data=reward_mean_per_ep, condition=model_name, color=palette[model_num], time=most_objs_time)
+        else:
+            sns.tsplot(data=reward_mean_per_ep, condition=model_name, color=palette[model_num])
     plt.savefig(os.path.join(env_dir, "model_curve_reward_summary{}.png".format(name_spec)))
     plt.close()
 
     plt.figure()
     for model_num, (length_mean_per_ep, model_name) in enumerate(all_model_length_mean_per_ep):
-        sns.tsplot(data=length_mean_per_ep, condition=model_name, color=palette[model_num], time=most_objs_time)
+        if np.any(most_objs_time):
+            if length_mean_per_ep.shape[1] < len(most_objs_time):
+                sns.tsplot(data=length_mean_per_ep, condition=model_name, color=palette[model_num], time=most_objs_time[:length_mean_per_ep.shape[1]])
+            else:
+                sns.tsplot(data=length_mean_per_ep, condition=model_name, color=palette[model_num], time=most_objs_time)
+        else:
+            sns.tsplot(data=length_mean_per_ep, condition=model_name, color=palette[model_num])
+
 
     plt.savefig(os.path.join(env_dir, "model_curve_length_summary{}.png".format(name_spec)))
     plt.close()
@@ -86,21 +97,37 @@ def plot_selected(env_dir, selected_list, name_spec='', horizontal_scaling=False
 
             all_model_reward_mean_per_ep.append( (np.load(mean_reward_file_path), model_name))
             all_model_length_mean_per_ep.append( (np.load(mean_length_file_path), model_name))
-            print([plop[1] for plop in all_model_reward_mean_per_ep])
-            palette = sns.color_palette(n_colors=len(all_model_length_mean_per_ep))
 
-        plt.figure()
-        for model_num, (reward_mean_per_ep, model_name) in enumerate(all_model_reward_mean_per_ep):
-            sns.tsplot(data=reward_mean_per_ep, condition=model_name, color=palette[model_num], time=one_obj_time)
-
-        plt.savefig(os.path.join(env_dir, "new_obj_reward_summary{}.png".format(name_spec)))
-        plt.close()
+        palette = sns.color_palette(n_colors=len(all_model_length_mean_per_ep))
 
         plt.figure()
         for model_num, (length_mean_per_ep, model_name) in enumerate(all_model_length_mean_per_ep):
-            sns.tsplot(data=length_mean_per_ep, condition=model_name, color=palette[model_num], time=one_obj_time)
+            if np.any(one_obj_time):
+                if length_mean_per_ep.shape[1] < len(most_objs_time):
+                    sns.tsplot(data=length_mean_per_ep, condition=model_name, color=palette[model_num], time=one_obj_time[:length_mean_per_ep.shape[1]])
+                elif reward_mean_per_ep.shape[1] > len(most_objs_time):
+                    sns.tsplot(data=length_mean_per_ep, condition=model_name, color=palette[model_num], time=one_obj_time)
+                else:
+                    sns.tsplot(data=length_mean_per_ep, condition=model_name, color=palette[model_num], time=one_obj_time)
+            else:
+                sns.tsplot(data=length_mean_per_ep, condition=model_name, color=palette[model_num])
+
 
         plt.savefig(os.path.join(env_dir, "new_obj_length_summary{}.png".format(name_spec)))
+        plt.close()
+
+        plt.figure()
+
+        for model_num, (reward_mean_per_ep, model_name) in enumerate(all_model_reward_mean_per_ep):
+            if np.any(one_obj_time):
+                if reward_mean_per_ep.shape[1] < len(most_objs_time):
+                    sns.tsplot(data=reward_mean_per_ep, condition=model_name, color=palette[model_num], time=one_obj_time[:reward_mean_per_ep.shape[1]])
+                else:
+                    sns.tsplot(data=reward_mean_per_ep, condition=model_name, color=palette[model_num], time=one_obj_time)
+            else:
+                sns.tsplot(data=reward_mean_per_ep, condition=model_name, color=palette[model_num])
+
+        plt.savefig(os.path.join(env_dir, "new_obj_reward_summary{}.png".format(name_spec)))
         plt.close()
 
     except FileNotFoundError:
@@ -165,7 +192,7 @@ def plot_best_per_model(env_dir, num_model_taken=1):
     for model_list in [best_reinforce_model, best_film_reinforce_model, best_reinforce_pretrain_model, best_film_reinforce_pretrain_model]:
         all_selected_reinforce.extend(model_list)
 
-    print("all_selected_reinforce", all_selected_reinforce)
+    # print("all_selected_reinforce", all_selected_reinforce)
     if all_selected_reinforce:
         plot_selected(env_dir, all_selected_reinforce, name_spec="_best_per_model_reinforce", horizontal_scaling=True)
 
