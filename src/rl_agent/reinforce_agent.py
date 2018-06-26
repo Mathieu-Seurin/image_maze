@@ -71,7 +71,7 @@ class ReinforceAgent(object):
         self.gamma = config['discount_factor']
         self.update_every = config['update_every']
         self.entropy_penalty = config['entropy_penalty']
-        self.concatenate_objective = config['concatenate_objective']
+        # self.fusing_method = config['fusing_method']
         self.last_loss = np.nan
         self.rewards_epoch = []
         self.rewards_replay = []

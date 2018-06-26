@@ -9,7 +9,8 @@ sns.set_palette('colorblind')
 import os
 import argparse
 import numpy as np
-
+import warnings
+warnings.filterwarnings("ignore")
 
 # This is the default if success_threshold not defined in config
 success_threshold_default = 0.65
@@ -22,10 +23,20 @@ def time_to_success(averaged_curve, success_threshold=success_threshold_default)
     else:
         return tmp[0][0]
 
-def plot_selected(env_dir, selected_list, name_spec=''):
-
+def plot_selected(env_dir, selected_list, name_spec='', horizontal_scaling=False):
+    # TODO: get horizontal scaling to stop giving "all arrays must have same shape" error
     all_model_reward_mean_per_ep = []
     all_model_length_mean_per_ep = []
+
+    # Plot results for main train
+    print("selected list in plot_selected", selected_list)
+    test_every = json.load(open(os.path.join(env_dir, selected_list[0], "config.json"), 'r'))["train_params"]["test_every"]
+    n_objs = json.load(open(os.path.join(env_dir, selected_list[0], "config.json"), 'r'))["env_type"]["objective"]["curriculum"]["n_objective"]
+
+    if horizontal_scaling:
+        most_objs_time = test_every * np.array(range(len(np.load(os.path.join(env_dir, selected_list[0], "mean_rewards_per_episode_stacked.npy"))[0])))
+    else:
+        most_objs_time = None
 
     for model_id in selected_list:
 
@@ -42,19 +53,62 @@ def plot_selected(env_dir, selected_list, name_spec=''):
 
     plt.figure()
     for model_num, (reward_mean_per_ep, model_name) in enumerate(all_model_reward_mean_per_ep):
-        sns.tsplot(data=reward_mean_per_ep, condition=model_name, color=palette[model_num])
+        print(reward_mean_per_ep.shape, model_name)
+        if np.any(most_objs_time):
+            print(len(most_objs_time))
+        sns.tsplot(data=reward_mean_per_ep, condition=model_name, color=palette[model_num], time=most_objs_time)
 
     plt.savefig(os.path.join(env_dir, "model_curve_reward_summary{}.png".format(name_spec)))
     plt.close()
 
+    plt.figure()
     for model_num, (length_mean_per_ep, model_name) in enumerate(all_model_length_mean_per_ep):
-        sns.tsplot(data=length_mean_per_ep, condition=model_name, color=palette[model_num])
+        sns.tsplot(data=length_mean_per_ep, condition=model_name, color=palette[model_num], time=most_objs_time)
 
     plt.savefig(os.path.join(env_dir, "model_curve_length_summary{}.png".format(name_spec)))
     plt.close()
 
-def plot_best_per_model(env_dir, num_model_taken = 3):
+    # Plots for new_obj
+    # Assume that for a given model, best train performances imply best generalization
+    if horizontal_scaling:
+        one_obj_time = 2 * test_every / n_objs * np.array(range(len(np.load(os.path.join(env_dir, selected_list[0], "mean_rewards_new_obj_stacked.npy"))[0])))
+    else:
+        one_obj_time = None
 
+    all_model_reward_mean_per_ep = []
+    all_model_length_mean_per_ep = []
+
+    try:
+        for model_id in selected_list:
+            mean_reward_file_path = os.path.join(env_dir, model_id, "mean_rewards_new_obj_stacked.npy")
+            mean_length_file_path = os.path.join(env_dir, model_id, "mean_lengths_new_obj_stacked.npy")
+            model_name = open(os.path.join(env_dir, model_id, "model_name"), 'r').read()
+
+            all_model_reward_mean_per_ep.append( (np.load(mean_reward_file_path), model_name))
+            all_model_length_mean_per_ep.append( (np.load(mean_length_file_path), model_name))
+            print([plop[1] for plop in all_model_reward_mean_per_ep])
+            palette = sns.color_palette(n_colors=len(all_model_length_mean_per_ep))
+
+        plt.figure()
+        for model_num, (reward_mean_per_ep, model_name) in enumerate(all_model_reward_mean_per_ep):
+            sns.tsplot(data=reward_mean_per_ep, condition=model_name, color=palette[model_num], time=one_obj_time)
+
+        plt.savefig(os.path.join(env_dir, "new_obj_reward_summary{}.png".format(name_spec)))
+        plt.close()
+
+        plt.figure()
+        for model_num, (length_mean_per_ep, model_name) in enumerate(all_model_length_mean_per_ep):
+            sns.tsplot(data=length_mean_per_ep, condition=model_name, color=palette[model_num], time=one_obj_time)
+
+        plt.savefig(os.path.join(env_dir, "new_obj_length_summary{}.png".format(name_spec)))
+        plt.close()
+
+    except FileNotFoundError:
+        print('New obj results not found')
+
+
+
+def plot_best_per_model(env_dir, num_model_taken=1):
     best_resnet_dqn_model = []
     best_film_dqn_model = []
 
@@ -77,7 +131,43 @@ def plot_best_per_model(env_dir, num_model_taken = 3):
 
 
     best_resnet_dqn_model.extend(best_film_dqn_model)
-    plot_selected(env_dir, best_resnet_dqn_model, name_spec="_best_per_model")
+    if best_resnet_dqn_model:
+        plot_selected(env_dir, best_resnet_dqn_model, name_spec="_best_per_model_dqn", horizontal_scaling=True)
+
+    all_selected_reinforce = []
+    best_reinforce_model = []
+    best_film_reinforce_model = []
+    best_reinforce_pretrain_model = []
+    best_film_reinforce_pretrain_model = []
+
+    summary_path = os.path.join(env_dir, 'summary')
+    with open(summary_path) as summary_file:
+        for line_num, line in enumerate(summary_file.readlines()):
+            # if len(best_resnet_dqn_model)>= num_model_taken and len(best_film_dqn_model)>=num_model_taken:
+            #     break
+
+            line_splitted = line.split(' ')
+            name = line_splitted[0]
+            print(line_splitted)
+            model_id = line_splitted[1]
+
+            if 'reinforce_filmed' in name:
+                if 'pretrain' in name and len(best_film_reinforce_pretrain_model) < num_model_taken:
+                    best_film_reinforce_pretrain_model.append(model_id)
+                elif len(best_film_reinforce_model) < num_model_taken:
+                    best_film_reinforce_model.append(model_id)
+
+            elif 'reinforce' in name and not "filmed" in name:
+                if 'pretrain' in name and len(best_reinforce_pretrain_model) < num_model_taken:
+                    best_reinforce_pretrain_model.append(model_id)
+                elif len(best_reinforce_model) < num_model_taken:
+                    best_reinforce_model.append(model_id)
+    for model_list in [best_reinforce_model, best_film_reinforce_model, best_reinforce_pretrain_model, best_film_reinforce_pretrain_model]:
+        all_selected_reinforce.extend(model_list)
+
+    print("all_selected_reinforce", all_selected_reinforce)
+    if all_selected_reinforce:
+        plot_selected(env_dir, all_selected_reinforce, name_spec="_best_per_model_reinforce", horizontal_scaling=True)
 
 
 def plot_best(env_dir, num_taken=5):
@@ -95,8 +185,8 @@ def plot_best(env_dir, num_taken=5):
 
             list_five_best_id.append(model_id)
 
-
-    plot_selected(env_dir, list_five_best_id, name_spec="best{}".format(num_taken))
+    if list_five_best_id:
+        plot_selected(env_dir, list_five_best_id, name_spec="best{}".format(num_taken))
 
 
 def parse_env_subfolder(out_dir):
@@ -323,8 +413,8 @@ def aggregate_sub_folder_res(subfolder_path):
         results['mean_lengths_new_obj'] = results['mean_lengths_new_obj_stacked'].mean(axis=0)
         results['mean_rewards_new_obj'] = results['mean_rewards_new_obj_stacked'].mean(axis=0)
 
-        results['mean_mean_reward_new_obj'] = results['mean_lengths_new_obj'].mean()
-        results['mean_mean_length_new_obj'] = results['mean_rewards_new_obj'].mean()
+        results['mean_mean_reward_new_obj'] = results['mean_rewards_new_obj'].mean()
+        results['mean_mean_length_new_obj'] = results['mean_lengths_new_obj'].mean()
 
         results['std_lengths_new_obj'] = results['mean_lengths_new_obj_stacked'].std(axis=0)
         results['std_rewards_new_obj'] = results['mean_rewards_new_obj_stacked'].std(axis=0)

@@ -1,0 +1,28 @@
+{
+  "model_to_test":
+  [
+   "reinforce_pretrain",
+   "reinforce_filmed_pretrain",
+   "reinforce"
+  ],
+
+  "extension_to_test":
+  [
+    "reinforce_update_every_25"
+  ],
+
+  "env_config":
+  [
+    "text_medium_easy",
+    "text_medium_easy_gradient"
+  ],
+
+  "env_ext" :
+  [
+    "15_every_1_reinforce"
+  ],
+
+  "gpu_available": [0],
+  "capacity_per_gpu" : 3,
+  "n_seed" : 5
+}

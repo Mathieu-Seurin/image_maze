@@ -27,7 +27,7 @@
     "lstm_size" : 200,
     "use_film" : false,
     "update_every": 25,
-    "concatenate_objective" : false,
+    "fusing_method" : "concatenate",
     "entropy_penalty": 0.055
   }
 
