@@ -95,6 +95,7 @@ if __name__ == '__main__':
 
                 try:
                     command_param = all_commands.pop()
+                    print("Launching new exp, {} remaining".format(len(all_commands)))
                 except IndexError:
                     command_remains = False
                     break

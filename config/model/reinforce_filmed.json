@@ -1,0 +1,48 @@
+{
+  "name": "reinforce_filmed",
+  "agent_type":"resnet_reinforce",
+
+  "images_features" : "normalized",
+
+    "resnet_reinforce_params":{
+        "film_gen_param_vision":
+          {
+            "n_intermediate_channel": 16,
+            "intermediate_kernel_size": 0,
+
+            "n_final_channel": 32,
+            "final_kernel_size": 5,
+
+            "n_hidden_gamma" : 400,
+            "n_hidden_beta" : 400,
+            "dropout" : 0
+          },
+
+        "film_gen_param_text":{
+            "n_hidden_gamma" : 200,
+            "n_hidden_beta" : 200,
+            "common_layer" : true,
+            "dropout" : 0
+        },
+      "word_emb_size" : 20,
+      "lstm_size" : 200,
+
+      "learning_rate" : 1e-4,
+      "optimizer": "rmsprop",
+      "discount_factor": 0.9,
+
+      "n_modulated_block": 2,
+      "n_regular_block": 0,
+
+      "resblock_dropout": 0,
+      "fc_dropout": 0,
+      "n_hidden" : 400,
+      "head_channel" : 3,
+      "head_kernel" : 2,
+      "head_pool_kernel" : 3,
+      "use_film" : true,
+      "update_every": 50,
+      "concatenate_objective" : false,
+      "entropy_penalty": 0.055
+    }
+  }
