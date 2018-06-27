@@ -47,8 +47,7 @@
     "word_emb_size" : 20,
     "lstm_size" : 200,
 
-
-    "use_film" : true,
+    "fusing_method" : "film",
 
     "tau" : 0.01,
     "soft_update" : true

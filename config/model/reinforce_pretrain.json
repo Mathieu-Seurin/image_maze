@@ -25,7 +25,9 @@
 
     "word_emb_size" : 20,
     "lstm_size" : 200,
-    "use_film" : false,
+
+    "fusing_method" : "concatenate",
+
     "update_every": 25,
     "concatenate_objective" : false,
     "entropy_penalty": 0.055

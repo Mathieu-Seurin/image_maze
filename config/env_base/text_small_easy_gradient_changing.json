@@ -1,5 +1,5 @@
 {
-  "name": "text_small_easy",
+  "name": "text_small_easy_gradient_changing",
   "success_threshold": 0.60,
   "env_type":
   {
@@ -7,8 +7,8 @@
     "n_col": 2,
     "n_zone": 4,
     "state_type" : "surrounding",
-    "change_maze" : 0,
-    "maze_type" : "zone",
+    "change_maze" : 2,
+    "maze_type" : "zone_color_gradient",
     "time_penalty" : false,
     "objective" : {
       "type" : "text",

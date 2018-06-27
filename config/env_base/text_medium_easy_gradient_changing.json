@@ -1,14 +1,14 @@
 {
-  "name": "text_small_easy",
-  "success_threshold": 0.60,
+  "name": "text_medium_easy_gradient_changing",
+  "success_threshold": 0.50,
   "env_type":
   {
-    "n_row": 3,
-    "n_col": 2,
+    "n_row": 4,
+    "n_col": 3,
     "n_zone": 4,
     "state_type" : "surrounding",
-    "change_maze" : 0,
-    "maze_type" : "zone",
+    "change_maze" : 2,
+    "maze_type" : "zone_color_gradient",
     "time_penalty" : false,
     "objective" : {
       "type" : "text",

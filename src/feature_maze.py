@@ -141,6 +141,9 @@ class ImageFmapGridWorld(object):
             self.train_objectives = self.all_objectives[:self.n_objectives]
             self.test_objectives = self.all_objectives[self.n_objectives:self.max_objectives]
 
+            assert self.n_objectives < len(self.all_objectives), \
+                "Too much objectives indicated in extension, it happens if you use run_multiple.py with lots of different env"
+
             self._reward_position = self.train_objectives[0]
 
             self.post_process = self._change_objective

@@ -73,7 +73,7 @@ if __name__ == '__main__':
     processes = []
 
 
-    command_remains = len(processes) > 0
+    command_remains = len(all_commands) > 0
     for expe_num in range(n_gpu * capacity_per_gpu):
 
         # Launch expe, fill all processes

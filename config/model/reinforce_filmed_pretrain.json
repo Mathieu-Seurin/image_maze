@@ -40,7 +40,9 @@
     "head_channel" : 3,
     "head_kernel" : 2,
     "head_pool_kernel" : 3,
-    "use_film" : true,
+
+    "fusing_method" : "film",
+
     "update_every": 50,
     "concatenate_objective" : false,
     "entropy_penalty": 0.055
