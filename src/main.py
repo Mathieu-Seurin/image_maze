@@ -25,7 +25,7 @@ def full_train_test(env_config, model_config, env_extension, model_extension, ex
                                                                exp_dir=exp_dir,
                                                                seed=seed
                                                                )
-    
+
     logger = logging.getLogger()
 
     if device != -1:
@@ -81,6 +81,7 @@ def full_train_test(env_config, model_config, env_extension, model_extension, ex
 
     reward_list = []
     length_list = []
+    tic = time.time()
 
     for epoch in range(n_epochs):
         state = env.reset(show=False)
@@ -139,6 +140,8 @@ def full_train_test(env_config, model_config, env_extension, model_extension, ex
         env.post_process()
 
     save_stats(save_path, reward_list, length_list)
+    toc = time.time()
+    logging.info('Total time for main obj loop : {}'.format(toc - tic))
 
     if do_new_obj_dynamics:
         test_new_obj_learning(agent=rl_agent,
@@ -146,6 +149,7 @@ def full_train_test(env_config, model_config, env_extension, model_extension, ex
                               config=config,
                               discount_factor=discount_factor,
                               save_path=save_path)
+    logging.info('Total time for new_obj loop : {}'.format(time.time() - toc))
 
 
 def test(agent, env, config, test_number, discount_factor, save_path):
@@ -224,7 +228,7 @@ def test(agent, env, config, test_number, discount_factor, save_path):
 
         with open(save_path.format('per_obj/obj' + str(num_objective) + '_lengths.txt'), 'a+') as f:
             f.write("{}\n".format(np.mean(lengths)))
-            
+
     # Setting the model back into train mode (for dropout for example)
     agent.train()
     env.train()
@@ -319,7 +323,7 @@ def test_new_obj_learning(agent, env, config, discount_factor, save_path):
         test_objectives = env.test_objectives
 
     n_epochs_new_obj = n_epochs // len(env.train_objectives) * 2
-    test_every_new_obj = test_every // len(env.train_objectives) * 2
+    test_every_new_obj = test_every // len(env.train_objectives) * len(test_objectives) # To keep same total duration, not same number of points in each curve
 
     state_dict, saved_memory = agent.save_state()
     logging.info('Agent state saved')
@@ -327,7 +331,6 @@ def test_new_obj_learning(agent, env, config, discount_factor, save_path):
     for num_objective, objective in enumerate(test_objectives):
         logging.debug('Switching objective to {}'.format(objective))
         env.reward_position = objective
-        # TODO : add this to template and both agents
         agent.load_state(state_dict, saved_memory)
         logging.info('Agent state loaded')
 
@@ -423,4 +426,3 @@ if __name__ == '__main__':
                     device=args.device,
                     seed=args.seed,
                     exp_dir=args.exp_dir)
-
