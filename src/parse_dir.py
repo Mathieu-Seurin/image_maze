@@ -24,7 +24,6 @@ def time_to_success(averaged_curve, success_threshold=success_threshold_default)
         return tmp[0][0]
 
 def plot_selected(env_dir, selected_list, name_spec='', horizontal_scaling=False):
-    # TODO: get horizontal scaling to stop giving "all arrays must have same shape" error
     all_model_reward_mean_per_ep = []
     all_model_length_mean_per_ep = []
 
@@ -47,16 +46,12 @@ def plot_selected(env_dir, selected_list, name_spec='', horizontal_scaling=False
         all_model_reward_mean_per_ep.append( (np.load(mean_reward_file_path), model_name))
         all_model_length_mean_per_ep.append( (np.load(mean_length_file_path), model_name))
 
-
-    # TODO : use averaged curve from aggregate_sub_folder_res
     palette = sns.color_palette(n_colors=len(all_model_length_mean_per_ep))
 
     plt.figure()
     for model_num, (reward_mean_per_ep, model_name) in enumerate(all_model_reward_mean_per_ep):
-        # print(reward_mean_per_ep.shape, model_name)
         if np.any(most_objs_time):
             if reward_mean_per_ep.shape[1] < len(most_objs_time):
-                print(len(most_objs_time[:reward_mean_per_ep.shape[1]]), reward_mean_per_ep.shape)
                 sns.tsplot(data=reward_mean_per_ep, condition=model_name, color=palette[model_num], time=most_objs_time[:reward_mean_per_ep.shape[1]])
             else:
                 sns.tsplot(data=reward_mean_per_ep, condition=model_name, color=palette[model_num], time=most_objs_time)
@@ -64,6 +59,7 @@ def plot_selected(env_dir, selected_list, name_spec='', horizontal_scaling=False
             sns.tsplot(data=reward_mean_per_ep, condition=model_name, color=palette[model_num])
     plt.savefig(os.path.join(env_dir, "model_curve_reward_summary{}.png".format(name_spec)))
     plt.close()
+
 
     plt.figure()
     for model_num, (length_mean_per_ep, model_name) in enumerate(all_model_length_mean_per_ep):
@@ -81,15 +77,16 @@ def plot_selected(env_dir, selected_list, name_spec='', horizontal_scaling=False
 
     # Plots for new_obj
     # Assume that for a given model, best train performances imply best generalization
-    if horizontal_scaling:
-        one_obj_time = 2 * test_every / n_objs * np.array(range(len(np.load(os.path.join(env_dir, selected_list[0], "mean_rewards_new_obj_stacked.npy"))[0])))
-    else:
-        one_obj_time = None
 
-    all_model_reward_mean_per_ep = []
-    all_model_length_mean_per_ep = []
 
     try:
+        if horizontal_scaling:
+            one_obj_time = 2 * test_every / n_objs * np.array(range(len(np.load(os.path.join(env_dir, selected_list[0], "mean_rewards_new_obj_stacked.npy"))[0])))
+        else:
+            one_obj_time = None
+
+        all_model_reward_mean_per_ep = []
+        all_model_length_mean_per_ep = []
         for model_id in selected_list:
             mean_reward_file_path = os.path.join(env_dir, model_id, "mean_rewards_new_obj_stacked.npy")
             mean_length_file_path = os.path.join(env_dir, model_id, "mean_lengths_new_obj_stacked.npy")
@@ -256,8 +253,8 @@ def parse_env_subfolder(out_dir):
         results_new_obj.append((name, subfolder, mean_mean_length_new_obj,
             mean_mean_reward_new_obj, time_to_success_new_obj, n_succeeded_new_objs))
 
-    results.sort(key=lambda x:x[3])
-    results_new_obj.sort(key=lambda x:x[3])
+    results.sort(key=lambda x:-x[3])
+    results_new_obj.sort(key=lambda x:-x[3])
 
 
     print(results)
@@ -361,9 +358,11 @@ def aggregate_sub_folder_res(subfolder_path):
                 length_aggregator = np.load(new_obj_dir+"{}_length.npy".format(obj))
                 reward_aggregator = np.load(new_obj_dir+"{}_reward.npy".format(obj))
             else:
-                length_aggregator = np.vstack((length_aggregator, np.load(new_obj_dir+"{}_length.npy".format(obj))))
-                reward_aggregator = np.vstack((reward_aggregator, np.load(new_obj_dir+"{}_reward.npy".format(obj))))
-
+                try:
+                    length_aggregator = np.vstack((length_aggregator, np.load(new_obj_dir+"{}_length.npy".format(obj))))
+                    reward_aggregator = np.vstack((reward_aggregator, np.load(new_obj_dir+"{}_reward.npy".format(obj))))
+                except:
+                    print('Error line 360 or 361 : most likely one of the exps crashed')
         # This is averaged over objs
         results['mean_lengths_new_obj'].append(np.mean(length_aggregator, axis=0))
         results['mean_rewards_new_obj'].append(np.mean(reward_aggregator, axis=0))
@@ -380,17 +379,28 @@ def aggregate_sub_folder_res(subfolder_path):
     results['mean_mean_reward'] /= n_different_seed
     results['mean_mean_length'] /= n_different_seed
 
+
+
     try:
         results['mean_lengths_per_episode_stacked'] = np.stack(results['mean_lengths_per_episode'], axis=0)
     except ValueError:
         print(subfolder_path, " is an empty experiment")
         return None
 
+    # Account for crashed experiments :
+    max_len = np.max([len(i) for i in results['mean_lengths_per_episode']])
+    results['mean_lengths_per_episode'] = [l for l in results['mean_lengths_per_episode'] if len(l) == max_len]
+    results['mean_rewards_per_episode'] = [l for l in results['mean_rewards_per_episode'] if len(l) == max_len]
+
+    max_len_new = np.max([len(i) for i in results['mean_lengths_new_obj']])
+    results['mean_lengths_new_obj'] = [l for l in results['mean_lengths_new_obj'] if len(l) == max_len_new]
+    results['mean_rewards_new_obj'] = [l for l in results['mean_rewards_new_obj'] if len(l) == max_len_new]
+
     # For plots, determine the scale
     test_every = json.load(open(subfolder_path + '/config.json', 'r'))["train_params"]["test_every"]
     n_objs = json.load(open(subfolder_path + '/config.json', 'r'))["env_type"]["objective"]["curriculum"]["n_objective"]
 
-    most_objs_time = test_every * np.array(range(len(results['mean_lengths_per_episode_stacked'][0])))
+    most_objs_time = test_every * np.array(range(max_len))
 
     results['mean_rewards_per_episode_stacked'] = np.stack(results['mean_rewards_per_episode'], axis=0)
 
@@ -425,7 +435,10 @@ def aggregate_sub_folder_res(subfolder_path):
 
     # If you have 20 objectives, no new obj possible.
     try:
+        print('before stacking new objs')
+        print([len(i) for i in results['mean_lengths_new_obj']])
         results['mean_lengths_new_obj_stacked'] = np.stack(results['mean_lengths_new_obj'], axis=0)
+        print('after stacking new objs')
         new_obj_test_is_available = True
     except ValueError:
         new_obj_test_is_available = False
