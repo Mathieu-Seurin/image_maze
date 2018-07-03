@@ -81,7 +81,9 @@ def plot_selected(env_dir, selected_list, name_spec='', horizontal_scaling=False
 
     try:
         if horizontal_scaling:
-            one_obj_time = 2 * test_every / n_objs * np.array(range(len(np.load(os.path.join(env_dir, selected_list[0], "mean_rewards_new_obj_stacked.npy"))[0])))
+            one_obj_time =  test_every // 3 * np.array(range(len(np.load(os.path.join(env_dir, selected_list[0], "mean_rewards_new_obj_stacked.npy"))[0])))
+            # This was for one obj at a time
+            # one_obj_time = 2 * test_every / n_objs * np.array(range(len(np.load(os.path.join(env_dir, selected_list[0], "mean_rewards_new_obj_stacked.npy"))[0])))
         else:
             one_obj_time = None
 
@@ -331,9 +333,11 @@ def aggregate_sub_folder_res(subfolder_path):
                     length_aggregator = np.loadtxt(per_obj_dir+"obj{}_lengths.txt".format(obj))
                     reward_aggregator = np.loadtxt(per_obj_dir+"obj{}_rewards.txt".format(obj))
                 else:
-                    length_aggregator = np.vstack((length_aggregator, np.loadtxt(per_obj_dir+"obj{}_lengths.txt".format(obj))))
-                    reward_aggregator = np.vstack((reward_aggregator, np.loadtxt(per_obj_dir+"obj{}_rewards.txt".format(obj))))
-
+                    try:
+                        length_aggregator = np.vstack((length_aggregator, np.loadtxt(per_obj_dir+"obj{}_lengths.txt".format(obj))))
+                        reward_aggregator = np.vstack((reward_aggregator, np.loadtxt(per_obj_dir+"obj{}_rewards.txt".format(obj))))
+                    except ValueError:
+                        pass
             # For each obj, use last 5 tests to determine final exit time
             # Will be used for "Number of succeeded train objs"
             results['mean_final_rewards_per_obj'].append(np.mean(reward_aggregator[:, -5:], axis=1).flatten())
@@ -341,7 +345,9 @@ def aggregate_sub_folder_res(subfolder_path):
         except FileNotFoundError:
             # "No per_obj directory found, if experiments before introducing per_obj/ this is normal")
             pass
-
+        except ValueError:
+            # This indicates that new_objs were done using test_bulk
+            pass
 
         #### NEW OBJECTIVES STATS AGGREGATOR #######
         #==========================================
@@ -351,6 +357,32 @@ def aggregate_sub_folder_res(subfolder_path):
             n_objs = len(np.unique([int(i.split('_')[0]) for i in os.listdir(new_obj_dir)]))
         except FileNotFoundError:
             # "No new_obj directory found, if there was 20 objectives during training, this is normal")
+            continue
+        except ValueError:
+            # This indicates that new_objs were done using test_bulk
+            new_obj_dir = seed_dir + 'new_obj/' + 'per_obj/'
+            n_objs = len(np.unique([int(i.split('_')[0][3:]) for i in os.listdir(new_obj_dir)]))
+            for obj in range(n_objs):
+                if obj == 0:
+                    length_aggregator = np.loadtxt(new_obj_dir+"obj{}_lengths.txt".format(obj))
+                    reward_aggregator = np.loadtxt(new_obj_dir+"obj{}_rewards.txt".format(obj))
+                else:
+                    try:
+                        length_aggregator = np.vstack((length_aggregator, np.loadtxt(new_obj_dir+"obj{}_lengths.txt".format(obj))))
+                        reward_aggregator = np.vstack((reward_aggregator, np.loadtxt(new_obj_dir+"obj{}_rewards.txt".format(obj))))
+                    except ValueError:
+                        print("Exp wasn't done, ignore it")
+                        pass
+
+
+            # This is averaged over objs
+            results['mean_lengths_new_obj'].append(np.mean(length_aggregator, axis=0))
+            results['mean_rewards_new_obj'].append(np.mean(reward_aggregator, axis=0))
+
+            # For each new obj, use last 5 tests to determine final exit time
+            # Will be used for "Number of succeeded new objs"
+
+            results['mean_final_rewards_per_new_obj'].append(np.mean(reward_aggregator[:, -5:], axis=1).flatten())
             continue
 
         for obj in range(n_objs):
@@ -435,10 +467,7 @@ def aggregate_sub_folder_res(subfolder_path):
 
     # If you have 20 objectives, no new obj possible.
     try:
-        print('before stacking new objs')
-        print([len(i) for i in results['mean_lengths_new_obj']])
         results['mean_lengths_new_obj_stacked'] = np.stack(results['mean_lengths_new_obj'], axis=0)
-        print('after stacking new objs')
         new_obj_test_is_available = True
     except ValueError:
         new_obj_test_is_available = False
