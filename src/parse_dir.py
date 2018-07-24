@@ -46,6 +46,7 @@ def plot_selected(env_dir, selected_list, name_spec='', horizontal_scaling=False
         all_model_reward_mean_per_ep.append( (np.load(mean_reward_file_path), model_name))
         all_model_length_mean_per_ep.append( (np.load(mean_length_file_path), model_name))
 
+
     palette = sns.color_palette(n_colors=len(all_model_length_mean_per_ep))
 
     plt.figure()
@@ -57,7 +58,8 @@ def plot_selected(env_dir, selected_list, name_spec='', horizontal_scaling=False
                 sns.tsplot(data=reward_mean_per_ep, condition=model_name, color=palette[model_num], time=most_objs_time)
         else:
             sns.tsplot(data=reward_mean_per_ep, condition=model_name, color=palette[model_num])
-    plt.savefig(os.path.join(env_dir, "model_curve_reward_summary{}.png".format(name_spec)))
+
+    plt.savefig(os.path.join(env_dir, "model_curve_reward_summary{}.svg".format(name_spec)))
     plt.close()
 
 
@@ -71,8 +73,8 @@ def plot_selected(env_dir, selected_list, name_spec='', horizontal_scaling=False
         else:
             sns.tsplot(data=length_mean_per_ep, condition=model_name, color=palette[model_num])
 
-
-    plt.savefig(os.path.join(env_dir, "model_curve_length_summary{}.png".format(name_spec)))
+    plt.ylim(-0.05, 1.05)
+    plt.savefig(os.path.join(env_dir, "model_curve_length_summary{}.svg".format(name_spec)))
     plt.close()
 
     # Plots for new_obj
@@ -112,7 +114,7 @@ def plot_selected(env_dir, selected_list, name_spec='', horizontal_scaling=False
                 sns.tsplot(data=length_mean_per_ep, condition=model_name, color=palette[model_num])
 
 
-        plt.savefig(os.path.join(env_dir, "new_obj_length_summary{}.png".format(name_spec)))
+        plt.savefig(os.path.join(env_dir, "new_obj_length_summary{}.svg".format(name_spec)))
         plt.close()
 
         plt.figure()
@@ -125,8 +127,8 @@ def plot_selected(env_dir, selected_list, name_spec='', horizontal_scaling=False
                     sns.tsplot(data=reward_mean_per_ep, condition=model_name, color=palette[model_num], time=one_obj_time)
             else:
                 sns.tsplot(data=reward_mean_per_ep, condition=model_name, color=palette[model_num])
-
-        plt.savefig(os.path.join(env_dir, "new_obj_reward_summary{}.png".format(name_spec)))
+        plt.ylim(-0.05, 1.05)
+        plt.savefig(os.path.join(env_dir, "new_obj_reward_summary{}.svg".format(name_spec)))
         plt.close()
 
     except FileNotFoundError:
@@ -167,6 +169,7 @@ def plot_best_per_model(env_dir, num_model_taken=1):
     best_film_reinforce_pretrain_model = []
 
     summary_path = os.path.join(env_dir, 'summary')
+    print('\nBegin treating per model reinforce')
     with open(summary_path) as summary_file:
         for line_num, line in enumerate(summary_file.readlines()):
             # if len(best_resnet_dqn_model)>= num_model_taken and len(best_film_dqn_model)>=num_model_taken:
@@ -180,18 +183,22 @@ def plot_best_per_model(env_dir, num_model_taken=1):
             if 'reinforce_filmed' in name:
                 if 'pretrain' in name and len(best_film_reinforce_pretrain_model) < num_model_taken:
                     best_film_reinforce_pretrain_model.append(model_id)
-                elif len(best_film_reinforce_model) < num_model_taken:
+                    print('plop', model_id)
+                elif 'pretrain' not in name and len(best_film_reinforce_model) < num_model_taken:
                     best_film_reinforce_model.append(model_id)
+                    print('plop2', model_id)
 
             elif 'reinforce' in name and not "filmed" in name:
                 if 'pretrain' in name and len(best_reinforce_pretrain_model) < num_model_taken:
                     best_reinforce_pretrain_model.append(model_id)
-                elif len(best_reinforce_model) < num_model_taken:
+                    print('plop3', model_id)
+                elif 'pretrain' not in name and len(best_reinforce_model) < num_model_taken:
                     best_reinforce_model.append(model_id)
+                    print('plop4', model_id)
     for model_list in [best_reinforce_model, best_film_reinforce_model, best_reinforce_pretrain_model, best_film_reinforce_pretrain_model]:
         all_selected_reinforce.extend(model_list)
 
-    # print("all_selected_reinforce", all_selected_reinforce)
+    print("all_selected_reinforce", all_selected_reinforce)
     if all_selected_reinforce:
         plot_selected(env_dir, all_selected_reinforce, name_spec="_best_per_model_reinforce", horizontal_scaling=True)
 
@@ -218,6 +225,8 @@ def plot_best(env_dir, num_taken=5):
 def parse_env_subfolder(out_dir):
     results = []
     results_new_obj = []
+
+    get_deterministic_agents_score(out_dir)
 
     for subfolder in os.listdir(out_dir):
         result_path = os.path.join(out_dir, (subfolder))
@@ -273,8 +282,52 @@ def parse_env_subfolder(out_dir):
     open(out_dir+"/summary", 'w').write(summary_str)
     open(out_dir+"/summary_new_obj", 'w').write(summary_str_new_obj)
 
+def get_deterministic_agents_score(out_dir):
+    rews_perf = []
+    rews_rand = []
+
+    for subfolder in os.listdir(out_dir):
+        subfolder_path = os.path.join(out_dir, (subfolder))
+
+        if os.path.isfile(subfolder_path):
+            continue
+
+        subfolder_path += '/'
+
+        name = open(subfolder_path+"model_name", 'r').read()
+
+        if name not in ['base_perfect', 'basic_config']:
+            continue
+
+        n_different_seed = 0
+
+        for file_in_subfolder in os.listdir(subfolder_path):
+            seed_dir = subfolder_path + file_in_subfolder
+
+            if os.path.isfile(seed_dir):
+                continue
+
+            seed_dir += '/'
+            n_different_seed += 1
+
+            #### PER OBJECTIVE STATS AGGREGATOR #######
+            #==========================================
+            # The outer loop averages over seeds, need to first average over objs
+            per_obj_dir = seed_dir + 'per_obj/'
+
+            n_objs = len(np.unique([int(i.split('_')[0][3:]) for i in os.listdir(per_obj_dir)]))
+            for obj in range(n_objs):
+                if name == 'base_perfect':
+                    rews_perf.append(np.loadtxt(per_obj_dir+"obj{}_rewards.txt".format(obj)))
+                if name == 'basic_config':
+                    rews_rand.append(np.loadtxt(per_obj_dir+"obj{}_rewards.txt".format(obj)))
+
+    np.savetxt(os.path.join(out_dir, 'perfect_agent_rew.txt'), [np.mean(rews_perf)])
+    np.savetxt(os.path.join(out_dir, 'random_agent_rew.txt'), [np.mean(rews_rand)])
+
+
 def aggregate_sub_folder_res(subfolder_path):
-    # config_files.txt  config.json  eval_curve.png  last_10_std_length  last_10_std_reward  last_5_length.npy  last_5_reward.npy
+    # config_files.txt  config.json  eval_curve.svg  last_10_std_length  last_10_std_reward  last_5_length.npy  last_5_reward.npy
     # length.npy  mean_length  mean_reward  model_name  reward.npy  train_lengths  train.log  train_rewards
     try:
         success_threshold = json.load(open(subfolder_path+"config.json", 'r'))['success_threshold']
@@ -286,6 +339,18 @@ def aggregate_sub_folder_res(subfolder_path):
     results = dict()
     results['model_name'] = open(subfolder_path+"model_name", 'r').read()
 
+    results['perfect_agent_rew'] = 1.
+    results['random_agent_rew'] = 0.
+    out_dir = subfolder_path + '../'
+
+    try:
+        results['perfect_agent_rew'] = np.loadtxt(os.path.join(out_dir, 'perfect_agent_rew.txt'))
+        results['random_agent_rew'] = np.loadtxt(os.path.join(out_dir, 'random_agent_rew.txt'))
+    except OSError:
+        print("Did not find the perfect / random agent rewards at {}".format(os.path.join(out_dir, 'perfect_agent_rew.txt')))
+        pass
+
+    print(results['perfect_agent_rew'], results['random_agent_rew'])
     results['mean_mean_reward'] = 0
     results['mean_mean_length'] = 0
 
@@ -451,13 +516,20 @@ def aggregate_sub_folder_res(subfolder_path):
 
     plt.figure()
     sns.tsplot(data=results['mean_lengths_per_episode_stacked'], time=most_objs_time)
-    plt.savefig(os.path.join(subfolder_path, "mean_lengths_per_episode_over{}_run.png".format(n_different_seed)))
+    plt.savefig(os.path.join(subfolder_path, "mean_lengths_per_episode_over{}_run.svg".format(n_different_seed)))
     plt.close()
+
+    # Scale the rewards before saving them (that way, will automatically be used in the following)
+
+    results['mean_rewards_per_episode_stacked'] -= results['random_agent_rew']
+    results['mean_rewards_per_episode_stacked'] /= (results['perfect_agent_rew'] - results['random_agent_rew'])
 
     plt.figure()
     sns.tsplot(data=results['mean_rewards_per_episode_stacked'], time=most_objs_time)
-    plt.savefig(os.path.join(subfolder_path, "mean_rewards_per_episode_over{}_run.png".format(n_different_seed)))
+    plt.savefig(os.path.join(subfolder_path, "mean_rewards_per_episode_over{}_run.svg".format(n_different_seed)))
     plt.close()
+
+
 
     np.save(os.path.join(subfolder_path, "mean_rewards_per_episode_stacked"), results['mean_rewards_per_episode_stacked'])
     np.save(os.path.join(subfolder_path, "mean_lengths_per_episode_stacked"), results['mean_lengths_per_episode_stacked'])
@@ -500,13 +572,15 @@ def aggregate_sub_folder_res(subfolder_path):
 
         plt.figure()
         sns.tsplot(data=results['mean_lengths_new_obj_stacked'], time=one_obj_time)
-        plt.savefig(os.path.join(subfolder_path,"mean_lengths_new_obj_over{}_run.png".format(n_different_seed)))
+        plt.savefig(os.path.join(subfolder_path,"mean_lengths_new_obj_over{}_run.svg".format(n_different_seed)))
         plt.close()
 
+        results['mean_rewards_new_obj_stacked'] -= results['random_agent_rew']
+        results['mean_rewards_new_obj_stacked'] /= (results['perfect_agent_rew'] - results['random_agent_rew'])
 
         plt.figure()
         sns.tsplot(data=results['mean_rewards_new_obj_stacked'], time=one_obj_time)
-        plt.savefig(os.path.join(subfolder_path,"mean_rewards_new_obj_over{}_run.png".format(n_different_seed)))
+        plt.savefig(os.path.join(subfolder_path,"mean_rewards_new_obj_over{}_run.svg".format(n_different_seed)))
         plt.close()
 
         np.save(os.path.join(subfolder_path,"mean_rewards_new_obj_stacked"), results['mean_rewards_new_obj_stacked'])

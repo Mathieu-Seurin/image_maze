@@ -136,8 +136,9 @@ class ImageFmapGridWorld(object):
 
             # Construct the list of objectives (the order is always the same)
             self.all_objectives = list(itertools.product(range(self.n_row), range(self.n_col)))
-            objective_shuffler = random.Random(777)
-            objective_shuffler.shuffle(self.all_objectives)
+
+            # Careful, now the choice of train / test objectives depends on the seed !
+            np.random.shuffle(self.all_objectives)
             self.train_objectives = self.all_objectives[:self.n_objectives]
             self.test_objectives = self.all_objectives[self.n_objectives:self.max_objectives]
 
@@ -185,7 +186,8 @@ class ImageFmapGridWorld(object):
 
         x_rew, y_rew = self._reward_position
         label_id, color_obj = self.grid_label_color[x_rew, y_rew]['label'], self.grid_label_color[x_rew, y_rew]['color']
-
+        color_obj = np_color_to_str(color_obj)
+        # print(color_obj)
         if not self.use_background_for_objective:
             color_obj = '0_0_0'
 
@@ -359,6 +361,7 @@ class ImageFmapGridWorld(object):
         default_background[0, :, :] = np.tile(np.linspace(0, 255, 8),(10, 1))  # 8 and 10 are the max value for n_col and n_row
         default_background[2, :, :] = np.tile(np.linspace(255, 0, 10),(8, 1)).T  # 8 and 10 are the max value for n_col and n_row
 
+        # print(default_background)
         # Define your type of grid
         # Either sequential or per zone
         # The important part is self.grid_label_color
