@@ -49,6 +49,7 @@ def full_train_test(env_config, model_config, env_extension, model_extension, ex
         discount_factor = 0.90
         return test(agent=rl_agent,
                     env=env,
+                    config=config,
                     test_number=1,
                     discount_factor=discount_factor,
                     save_path=save_path)
@@ -64,6 +65,12 @@ def full_train_test(env_config, model_config, env_extension, model_extension, ex
     elif config['agent_type'] == 'perfect':
         rl_agent = PerfectAgent(config, env.action_space())
         discount_factor = config["discount_factor"]
+        return test(agent=rl_agent,
+                    env=env,
+                    config=config,
+                    test_number=1,
+                    discount_factor=discount_factor,
+                    save_path=save_path)
 
     else:
         assert False, "Wrong agent type : {}".format(config["agent_type"])
@@ -357,15 +364,6 @@ def test_new_obj_learning(agent, env, config, discount_factor, save_path):
             time_out = 20
             num_step = 0
 
-            while not done and num_step < time_out:
-                num_step += 1
-                action = agent.forward(state, eps_range[epoch])
-                next_state, reward, done, _ = env.step(action)
-                loss = agent.optimize(state, action, next_state, reward)
-                state = next_state
-
-            agent.callback(epoch)
-
             if epoch % test_every_new_obj == 0:
                 env.base_folder = 'test/'
                 rewards = []
@@ -397,6 +395,16 @@ def test_new_obj_learning(agent, env, config, discount_factor, save_path):
                 length_list.append(np.mean(lengths))
 
                 env.train()
+
+            while not done and num_step < time_out:
+                num_step += 1
+                action = agent.forward(state, eps_range[epoch])
+                next_state, reward, done, _ = env.step(action)
+                loss = agent.optimize(state, action, next_state, reward)
+                state = next_state
+
+            agent.callback(epoch)
+
         try:
             os.makedirs(save_path.format('new_obj/'))
         except FileExistsError:
