@@ -59,6 +59,7 @@ def plot_selected(env_dir, selected_list, name_spec='', horizontal_scaling=False
         else:
             sns.tsplot(data=reward_mean_per_ep, condition=model_name, color=palette[model_num])
 
+    plt.ylim(-0.05, 1.05)
     plt.savefig(os.path.join(env_dir, "model_curve_reward_summary{}.svg".format(name_spec)))
     plt.close()
 
@@ -73,7 +74,7 @@ def plot_selected(env_dir, selected_list, name_spec='', horizontal_scaling=False
         else:
             sns.tsplot(data=length_mean_per_ep, condition=model_name, color=palette[model_num])
 
-    plt.ylim(-0.05, 1.05)
+
     plt.savefig(os.path.join(env_dir, "model_curve_length_summary{}.svg".format(name_spec)))
     plt.close()
 
