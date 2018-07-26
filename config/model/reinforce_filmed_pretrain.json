@@ -28,7 +28,12 @@
     "lstm_size" : 200,
 
     "learning_rate" : 1e-4,
+
     "optimizer": "rmsprop",
+    "default_w_decay" : 0,
+    "FiLM_decay" : 0,
+
+
     "discount_factor": 0.9,
 
     "n_modulated_block": 2,

@@ -7,7 +7,10 @@
   "resnet_dqn_params":{
     "learning_rate" : 1e-5,
     "batch_size" : 64,
+
     "optimizer": "rmsprop",
+    "default_w_decay" : 0,
+
     "discount_factor": 0.90,
     "n_modulated_block": 0,
     "n_regular_block": 2,

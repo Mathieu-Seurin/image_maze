@@ -83,6 +83,8 @@ def full_train_test(env_config, model_config, env_extension, model_extension, ex
     length_list = []
     tic = time.time()
 
+    assert discount_factor == 0.90, "Warning, is this what you really want ? Rewards will be different"
+
     for epoch in range(n_epochs):
         state = env.reset(show=False)
         done = False

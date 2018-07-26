@@ -433,12 +433,22 @@ class FilmedNetText(nn.Module):
         self.fc2 = nn.Linear(in_features=self.n_hidden, out_features=self.n_actions)
 
         optimizer = config['optimizer'].lower()
+
+
+        optim_config = [
+            {'params': self.get_all_params_except_film(), 'weight_decay': config['default_w_decay']}, # Default config
+        ]
+
+        if self.use_film:
+            optim_config.append({'params': self.film_gen.parameters(), 'weight_decay': config['FiLM_decay']})  # Film gen parameters
+            assert len([i for i in optim_config[1]['params']]) + len([i for i in optim_config[0]['params']]) == len([i for i in self.parameters()])
+
         if optimizer == 'rmsprop':
-            self.optimizer = optim.RMSprop(self.parameters(), lr=self.lr)
+            self.optimizer = optim.RMSprop(optim_config, lr=self.lr)
         elif optimizer == 'adam':
-            self.optimizer = optim.Adam(self.parameters(), lr=self.lr)
+            self.optimizer = optim.Adam(optim_config, lr=self.lr)
         elif optimizer == "sgd":
-            self.optimizer = optim.SGD(self.parameters(), lr=self.lr)
+            self.optimizer = optim.SGD(optim_config, lr=self.lr)
         else:
             assert False, 'Optimizer not recognized'
 
@@ -497,6 +507,16 @@ class FilmedNetText(nn.Module):
             x = F.max_pool2d(x, kernel_size=self.pool_kernel_size_head)
 
         return x
+
+    def get_all_params_except_film(self):
+
+        params = []
+        for name, param in self.named_parameters():
+            if "film_gen" not in name:
+                params.append(param)
+
+        return params
+
 
     def concatenate_text_vision(self, text, vision):
         vision = vision.view(vision.size(0), -1)
