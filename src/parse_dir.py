@@ -415,6 +415,9 @@ def aggregate_sub_folder_res(subfolder_path):
             # This indicates that new_objs were done using test_bulk
             pass
 
+        except IndexError:
+            pass
+
         #### NEW OBJECTIVES STATS AGGREGATOR #######
         #==========================================
         # The outer loop averages over seeds, need to first average over objs
@@ -602,7 +605,7 @@ if __name__ == "__main__":
     if out_dir == '':
         for out_dir in os.listdir('out/'):
             env_path = os.path.join('out', out_dir)
-            if os.path.isfile(env_path):
+            if os.path.isfile(env_path) or out_dir[0] == "_": # "_" means ignore this folder, to keep result and speed up process
                 continue
             print("Parsing {}".format(env_path))
             print("=============================")
