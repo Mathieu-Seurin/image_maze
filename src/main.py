@@ -11,7 +11,7 @@ from config import load_config_and_logger, set_seed, save_stats, compute_epsilon
 from image_text_utils import make_video, make_eval_plot
 import os
 import sys
-
+from copy import deepcopy
 import torch
 
 def full_train_test(env_config, model_config, env_extension, model_extension, exp_dir, seed=0, device=-1, args=None):
@@ -49,6 +49,7 @@ def full_train_test(env_config, model_config, env_extension, model_extension, ex
         discount_factor = 0.90
         return test(agent=rl_agent,
                     env=env,
+                    config=config,
                     test_number=1,
                     discount_factor=discount_factor,
                     save_path=save_path)
@@ -64,6 +65,12 @@ def full_train_test(env_config, model_config, env_extension, model_extension, ex
     elif config['agent_type'] == 'perfect':
         rl_agent = PerfectAgent(config, env.action_space())
         discount_factor = config["discount_factor"]
+        return test(agent=rl_agent,
+                    env=env,
+                    config=config,
+                    test_number=1,
+                    discount_factor=discount_factor,
+                    save_path=save_path)
 
     else:
         assert False, "Wrong agent type : {}".format(config["agent_type"])
@@ -75,20 +82,21 @@ def full_train_test(env_config, model_config, env_extension, model_extension, ex
     do_zero_shot_test = False
     do_new_obj_dynamics = True
 
+    tic = time.time()
     logging.info(" ")
     logging.info("Begin Training")
     logging.info("===============")
 
     reward_list = []
     length_list = []
-    tic = time.time()
+
 
     assert discount_factor == 0.90, "Warning, is this what you really want ? Rewards will be different"
 
     for epoch in range(n_epochs):
         state = env.reset(show=False)
         done = False
-        time_out = 40
+        time_out = 20
         num_step = 0
 
         if epoch % test_every == 0:
@@ -146,11 +154,21 @@ def full_train_test(env_config, model_config, env_extension, model_extension, ex
     logging.info('Total time for main obj loop : {}'.format(toc - tic))
 
     if do_new_obj_dynamics:
-        test_new_obj_learning(agent=rl_agent,
+        try:
+            os.makedirs(save_path.format('new_obj'))
+        except FileExistsError:
+            pass
+
+        test_new_obj_bulk(agent=rl_agent,
                               env=env,
                               config=config,
                               discount_factor=discount_factor,
-                              save_path=save_path)
+                              save_path=save_path.format('new_obj/{}'))
+        # test_new_obj_learning(agent=rl_agent,
+        #                       env=env,
+        #                       config=config,
+        #                       discount_factor=discount_factor,
+        #                       save_path=save_path)
     logging.info('Total time for new_obj loop : {}'.format(time.time() - toc))
 
 
@@ -304,7 +322,6 @@ def test_zero_shot(agent, env, config, discount_factor, test_number, save_path):
 
 
 def test_new_obj_learning(agent, env, config, discount_factor, save_path):
-    # Use train images for the learning phase, test on test as usual
     env.train()
 
     lengths, rewards = [], []
@@ -349,15 +366,6 @@ def test_new_obj_learning(agent, env, config, discount_factor, save_path):
             time_out = 20
             num_step = 0
 
-            while not done and num_step < time_out:
-                num_step += 1
-                action = agent.forward(state, eps_range[epoch])
-                next_state, reward, done, _ = env.step(action)
-                loss = agent.optimize(state, action, next_state, reward)
-                state = next_state
-
-            agent.callback(epoch)
-
             if epoch % test_every_new_obj == 0:
                 env.base_folder = 'test/'
                 rewards = []
@@ -389,14 +397,80 @@ def test_new_obj_learning(agent, env, config, discount_factor, save_path):
                 length_list.append(np.mean(lengths))
 
                 env.train()
+
+            while not done and num_step < time_out:
+                num_step += 1
+                action = agent.forward(state, eps_range[epoch])
+                next_state, reward, done, _ = env.step(action)
+                loss = agent.optimize(state, action, next_state, reward)
+                state = next_state
+
+            agent.callback(epoch)
+
         try:
             os.makedirs(save_path.format('new_obj/'))
         except FileExistsError:
             pass
         save_stats(save_path.format('new_obj/' + str(num_objective) + '_{}'), reward_list, length_list)
 
-    # TODO : actually implement this...
-    # make_averaged_curve(save_path.format('new_obj/{}'))
+
+def test_new_obj_bulk(agent, env, config, discount_factor, save_path):
+    env.train()
+
+    n_epochs = config["train_params"]["n_epochs"] // 3
+    test_every = config["train_params"]["test_every"] // 3
+    eps_range = compute_epsilon_schedule(config['train_params'], n_epochs)
+
+    backup = env.train_objectives
+    env.train_objectives = deepcopy(env.test_objectives)
+
+    reward_list = []
+    length_list = []
+
+
+    for epoch in range(n_epochs):
+        state = env.reset(show=False)
+        done = False
+        time_out = 20
+        num_step = 0
+
+        if epoch % test_every == 0:
+            reward, length = test(agent=agent,
+                                  env=env,
+                                  config=config,
+                                  test_number=epoch,
+                                  discount_factor=discount_factor,
+                                  save_path=save_path)
+
+            logging.info("Epoch {} test : averaged reward {:.2f}, average length {:.2f}".format(epoch, reward, length))
+
+            with open(save_path.format('train_lengths'), 'a+') as f:
+                f.write("{} {}\n".format(epoch, length))
+                length_list.append(length)
+            with open(save_path.format('train_rewards'), 'a+') as f:
+                f.write("{} {}\n".format(epoch, reward))
+                reward_list.append(reward)
+            make_eval_plot(save_path.format('train_lengths'), save_path.format('eval_curve.png'))
+            make_eval_plot(save_path.format('train_rewards'), save_path.format('eval_curve_rew.png'))
+
+        while not done and num_step < time_out:
+            num_step += 1
+            action = agent.forward(state, eps_range[epoch])
+            next_state, reward, done, _info = env.step(action)
+
+            assert bool(reward) == bool(done), "Holy shit."
+            assert bool(reward) == bool(_info['agent_position'] == _info['reward_position']), "Epic Fail"
+
+            loss = agent.optimize(state, action, next_state, reward)
+            state = next_state
+
+        agent.callback(epoch)
+        env.post_process()
+
+    env.train_objectives = backup
+    save_stats(save_path, reward_list, length_list)
+
+
 
 
 if __name__ == '__main__':
