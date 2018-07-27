@@ -25,13 +25,14 @@
     "head_pool_kernel": 2,
     "head_channel": 3,
 
+    "use_film" : false,
     "fusing_method" : "concatenate",
+
     "embedding_size_before_dot" : 100,
 
     "word_emb_size" : 30,
     "lstm_size" : 200,
 
-    "use_film" : false,
     "tau" : 0.001,
     "soft_update" : true
   }

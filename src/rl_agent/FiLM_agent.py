@@ -316,7 +316,7 @@ class FilmedNetText(nn.Module):
 
         # If use attention : no head/pooling
         self.use_attention = config['fusing_method'] == 'attention'
-        self.use_film = config["fusing_method"] == "film"
+        self.use_film = config["use_film"]
 
         # Text_encoding params
         self.word_embedding_size = config['word_emb_size']
@@ -389,45 +389,49 @@ class FilmedNetText(nn.Module):
 
         vizfeat_size_flatten_before_fuse = vizfeat_n_feat_map*vizfeat_height*vizfeat_width
 
-        # if Film, the size expected by the fc is the size of visual features, flattened
-        fc_input_size = vizfeat_size_flatten_before_fuse
 
-        # If you don't use film, the mlp has to deal with the image features AND text features
+        # The mlp has to deal with the image features AND text features
         # How do you fuse them ? (concatenation, dot-product, attention)
-        if not self.use_film:
 
-            if config['fusing_method'] == 'concatenate':
-                fc_input_size = self.lstm_size + vizfeat_size_flatten_before_fuse
-                self.fuse = self.concatenate_text_vision
+        if config['fusing_method'] == 'concatenate':
+            fc_input_size = self.lstm_size + vizfeat_size_flatten_before_fuse
+            self.fuse = self.concatenate_text_vision
 
-            elif config['fusing_method'] == 'dot':
-                self.embedding_size_before_dot = config['embedding_size_before_dot']
-                self.visual_embedding_before_dot = nn.Linear(vizfeat_size_flatten_before_fuse, self.embedding_size_before_dot)
-                self.text_embedding_before_dot = nn.Linear(self.lstm_size, self.embedding_size_before_dot)
-                self.fuse = self.dot_product_text_vision
+        elif config['fusing_method'] == 'dot':
+            self.embedding_size_before_dot = config['embedding_size_before_dot']
+            self.visual_embedding_before_dot = nn.Linear(vizfeat_size_flatten_before_fuse, self.embedding_size_before_dot)
+            self.text_embedding_before_dot = nn.Linear(self.lstm_size, self.embedding_size_before_dot)
+            self.fuse = self.dot_product_text_vision
 
-                fc_input_size = self.embedding_size_before_dot
+            fc_input_size = self.embedding_size_before_dot
 
-            elif config['fusing_method'] == 'attention':
-                attention_input_size = self.lstm_size + vizfeat_n_feat_map
-                hidden_mlp_size = config['hidden_mlp_attention']
+        elif config['fusing_method'] == 'attention':
+            attention_input_size = self.lstm_size + vizfeat_n_feat_map
+            hidden_mlp_size = config['hidden_mlp_attention']
 
-                if hidden_mlp_size > 0:
-                    hidden_layer_att = nn.Linear(attention_input_size, hidden_mlp_size)
-                    relu = nn.ReLU()
-                    self.attention_hidden = nn.Sequential(hidden_layer_att, relu)
+            if hidden_mlp_size > 0:
+                hidden_layer_att = nn.Linear(attention_input_size, hidden_mlp_size)
+                relu = nn.ReLU()
+                self.attention_hidden = nn.Sequential(hidden_layer_att, relu)
 
-                else:
-                    self.attention_hidden = lambda x:x
-                    hidden_mlp_size = attention_input_size
-
-                self.attention_last = nn.Linear(hidden_mlp_size, 1)
-
-                self.fuse = self.compute_attention
-                # text concatenated with vision after visual_attention, so size = lstm_size + width*heigth
-                fc_input_size = self.lstm_size + vizfeat_n_feat_map
             else:
-                raise NotImplementedError("Wrong Fusion method : {}, can only be : concatenate, dot, attention ".format(config['fusing_method']))
+                self.attention_hidden = lambda x:x
+                hidden_mlp_size = attention_input_size
+
+            self.attention_last = nn.Linear(hidden_mlp_size, 1)
+
+            self.fuse = self.compute_attention
+            # text concatenated with vision after visual_attention, so size = lstm_size + width*heigth
+            fc_input_size = self.lstm_size + vizfeat_n_feat_map
+
+        elif config['fusing_method'] == "no_fuse": # Usual Film method, the text is not used
+
+            # if Film no fuse, the size expected by the fc is the size of visual features, flattened
+            fc_input_size = vizfeat_size_flatten_before_fuse
+            self.fuse = self.vectorize
+
+        else:
+            raise NotImplementedError("Wrong Fusion method : {}, can only be : concatenate, dot, attention or no_fuse, but need to be explicit".format(config['fusing_method']))
 
         self.fc1 = nn.Linear(in_features=fc_input_size, out_features=self.n_hidden)
         self.fc2 = nn.Linear(in_features=self.n_hidden, out_features=self.n_actions)
@@ -470,10 +474,8 @@ class FilmedNetText(nn.Module):
         x = self.compute_conv(x, gammas=gammas, betas=betas)
 
         # fusing text and images
-        if not self.use_film:
-            x = self.fuse(text=text_state, vision=x)
-        else:
-            x = x.view(x.size(0), -1)
+        x = self.fuse(text=text_state, vision=x)
+
 
         x = F.relu(self.fc1(x))
         x = F.dropout(x, p=self.fc_dropout, training=self.training)
@@ -556,6 +558,9 @@ class FilmedNetText(nn.Module):
         vision = vision.squeeze(2)
 
         return self.concatenate_text_vision(text, vision)
+
+    def vectorize(self, text, vision):
+        return vision.view(vision.size(0), -1)
 
 
 

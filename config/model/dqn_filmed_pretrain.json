@@ -50,8 +50,12 @@
 
     "word_emb_size" : 20,
     "lstm_size" : 200,
-    
-    "fusing_method" : "film",
+
+    "use_film" : true,
+    "fusing_method" : "no_fuse",
+
+    "hidden_mlp_attention": 0,
+
     "tau" : 0.001,
     "soft_update" : true
   }

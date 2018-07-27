@@ -18,6 +18,7 @@ def override_config_recurs(config, config_extension):
         if type(value) is dict:
             config[key] = override_config_recurs(config[key], config_extension[key])
         else:
+            assert key in config, "Warning, key defined in extension but not original : key is {}".format(key)
             config[key] = value
 
     return config

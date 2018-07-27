@@ -20,6 +20,8 @@
     "n_hidden" : 400,
 
     "use_film" : false,
+    "fusing_method" : "concatenate",
+
     "tau" : 0.001,
     "soft_update" : true,
 
@@ -27,7 +29,6 @@
     "head_pool_kernel": 2,
     "head_channel": 3,
 
-    "fusing_method" : "concatenate",
 
     "word_emb_size" : 30,
     "lstm_size" : 200
