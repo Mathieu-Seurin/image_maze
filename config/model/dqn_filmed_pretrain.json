@@ -55,6 +55,8 @@
     "fusing_method" : "no_fuse",
 
     "hidden_mlp_attention": 0,
+    "embedding_size_before_dot" : 0,
+
 
     "tau" : 0.001,
     "soft_update" : true

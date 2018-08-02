@@ -1,0 +1,12 @@
+{
+  "name": "hard0_01_dot_prod",
+
+  "resnet_dqn_params":{
+
+
+    "embedding_size_before_dot" : 200,
+    "fusing_method" : "dot",
+    "tau" : 0.01,
+    "soft_update" : false
+  }
+}

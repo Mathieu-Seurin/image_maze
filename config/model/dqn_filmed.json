@@ -47,7 +47,6 @@
     "head_pool_kernel": 2,
     "head_channel": 3,
 
-
     "word_emb_size" : 20,
     "lstm_size" : 200,
 
@@ -55,6 +54,7 @@
     "fusing_method" : "no_fuse",
 
     "hidden_mlp_attention": 0,
+    "embedding_size_before_dot" : 0,
 
 
     "tau" : 0.001,

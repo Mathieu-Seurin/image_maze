@@ -1,0 +1,12 @@
+{
+  "name": "hard0_1_att",
+
+  "resnet_dqn_params":{
+
+    "hidden_mlp_attention": 200,
+
+    "fusing_method" : "attention",
+    "tau" : 0.1,
+    "soft_update" : false
+  }
+}

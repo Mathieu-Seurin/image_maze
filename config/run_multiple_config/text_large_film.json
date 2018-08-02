@@ -1,0 +1,32 @@
+{
+  "model_to_test":
+  [
+      "dqn_filmed_pretrain",
+      "dqn_filmed"
+  ],
+
+  "extension_to_test":
+  [
+    "soft_update0_1",
+    "soft_update0_01",
+    "soft_update0_001",
+    "hard_update0_1",
+    "hard_update0_01"
+  ],
+
+  "env_config":
+  [
+    "text_large_easy_gradient",
+    "text_large_easy"
+  ],
+
+  "env_ext" :
+  [
+    "25obj_every2",
+    "35obj_every2"
+  ],
+
+  "gpu_available": [0,1,2,3],
+  "capacity_per_gpu" : 6,
+  "n_seed" : 5
+}

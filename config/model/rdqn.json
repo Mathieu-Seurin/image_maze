@@ -1,10 +1,10 @@
 {
-  "name": "resnet_dqn",
+  "name": "rdqn",
 
-  "agent_type":"resnet_dqn",
+  "agent_type":"rdqn",
   "images_features" : "normalized",
 
-  "resnet_dqn_params":{
+  "rdqn_params":{
 
     "learning_rate" : 1e-5,
     "batch_size" : 64,
@@ -19,22 +19,26 @@
 
     "resblock_dropout": 0,
     "fc_dropout" : 0,
-    "n_hidden" : 400,
 
     "head_kernel": 3,
     "head_pool_kernel": 2,
     "head_channel": 3,
 
     "use_film" : false,
-    "fusing_method" : "concatenate",
+    "fusing_method_before_recurrent" : "concatenate",
+    "fusing_method_after_recurrent" : "no_fuse",
+
+    "n_hidden_lstm_dyn" : 300,
+    "lstm_dyn_n_layer" : 1,
 
     "embedding_size_before_dot" : 0,
     "hidden_mlp_attention": 0,
 
-
     "word_emb_size" : 30,
-    "lstm_size" : 200,
+    "text_lstm_size" : 200,
 
+    "memory_size" : 2000,
+    "max_seq_length" : 12,
     "tau" : 0.001,
     "soft_update" : true
   }

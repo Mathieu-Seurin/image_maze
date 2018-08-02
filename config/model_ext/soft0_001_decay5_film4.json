@@ -1,0 +1,10 @@
+{
+  "name": "soft0_001_decay5_film4",
+
+  "resnet_dqn_params": {
+    "default_w_decay": 1e-5,
+    "FiLM_decay": 1e-4,
+    "tau": 0.001,
+    "soft_update": true
+  }
+}

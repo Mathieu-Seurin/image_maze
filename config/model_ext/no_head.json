@@ -1,0 +1,8 @@
+{
+  "name": "no_head",
+
+  "resnet_dqn_params":{
+
+    "head_kernel": 0
+  }
+}

@@ -35,6 +35,7 @@ def full_train_test(env_config, model_config, env_extension, model_extension, ex
         logger.info("Using default device from env")
 
     from feature_maze import ImageFmapGridWorld
+    from rl_agent.rdqn_agent import RDQN_Agent
     from rl_agent.basic_agent import AbstractAgent, PerfectAgent
     from rl_agent.dqn_agent import DQNAgent
     from rl_agent.reinforce_agent import ReinforceAgent
@@ -53,6 +54,10 @@ def full_train_test(env_config, model_config, env_extension, model_extension, ex
                     test_number=1,
                     discount_factor=discount_factor,
                     save_path=save_path)
+
+    elif 'rdqn' in config["agent_type"]:
+        rl_agent = RDQN_Agent(config, env.action_space(), env.state_objective_dim(), env.is_multi_objective, env.objective_type)
+        discount_factor = config["rdqn_params"]["discount_factor"]
 
     elif 'dqn' in config["agent_type"]:
         rl_agent = DQNAgent(config, env.action_space(), env.state_objective_dim(), env.is_multi_objective, env.objective_type)
@@ -146,6 +151,7 @@ def full_train_test(env_config, model_config, env_extension, model_extension, ex
             loss = rl_agent.optimize(state, action, next_state, reward)
             state = next_state
 
+        # Sometimes, you have post-process at the end of an episode, it's done in .callback() for the agent
         rl_agent.callback(epoch)
         env.post_process()
 

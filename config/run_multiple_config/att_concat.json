@@ -1,0 +1,38 @@
+{
+  "model_to_test":
+  [
+      "resnet_dqn",
+      "resnet_dqn_pretrain"
+  ],
+
+  "extension_to_test":
+  [
+    "soft0_01_att",
+    "soft0_001_att",
+    "soft0_01_dot_prod",
+    "soft0_001_dot_prod",
+    "hard0_1_att",
+    "hard0_01_att",
+    "hard0_01_dot_prod",
+    "hard0_01_dot_prod"
+  ],
+
+  "env_config":
+  [
+    "text_medium_easy",
+    "text_medium_easy_gradient",
+    "text_small_easy",
+    "text_small_easy_gradient"
+  ],
+
+  "env_ext" :
+  [
+    "15obj_every2",
+    "25obj_every2",
+    "35obj_every2"
+  ],
+
+  "gpu_available": [0,1,2,3],
+  "capacity_per_gpu" : 6,
+  "n_seed" : 5
+}

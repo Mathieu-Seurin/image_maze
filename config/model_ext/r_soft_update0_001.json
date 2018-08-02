@@ -1,0 +1,8 @@
+{
+  "name": "r_soft_ref_model0.001",
+
+  "rdqn_params":{
+    "tau" : 0.001,
+    "soft_update" : true
+  }
+}

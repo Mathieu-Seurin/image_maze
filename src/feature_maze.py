@@ -92,7 +92,7 @@ class ImageFmapGridWorld(object):
         self.current_objective = None
         self.create_grid_of_image(show=False)
 
-        if config["state_type"] == "current":
+        if config["state_type"] == "narrow":
             self.get_env_state = self.get_current_square
         elif config["state_type"] == "surrounding":
             self.get_env_state = self.get_current_square_and_all_directions

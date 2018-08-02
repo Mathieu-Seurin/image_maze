@@ -1,0 +1,10 @@
+{
+  "name": "soft0_001_decay5_att",
+  "resnet_dqn_params": {
+    "default_w_decay": 1e-5,
+    "hidden_mlp_attention": 200,
+    "fusing_method": "attention",
+    "tau": 0.001,
+    "soft_update": true
+  }
+}

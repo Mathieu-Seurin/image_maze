@@ -22,6 +22,10 @@
     "use_film" : false,
     "fusing_method" : "concatenate",
 
+    "embedding_size_before_dot" : 0,
+    "hidden_mlp_attention": 0,
+
+
     "tau" : 0.001,
     "soft_update" : true,
 

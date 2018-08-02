@@ -1,0 +1,11 @@
+{
+  "name": "film_att_soft0_001_decay7_film6",
+  "resnet_dqn_params": {
+    "default_w_decay": 1e-7,
+    "FiLM_decay": 1e-6,
+    "attention_mlp": 200,
+    "fusing_method": "attention",
+    "tau": 0.001,
+    "soft_update": true
+  }
+}

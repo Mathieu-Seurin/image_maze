@@ -37,6 +37,81 @@ class ReplayMemory(object):
     def __len__(self):
         return len(self.memory)
 
+
+class ReplayMemoryRecurrent(object):
+
+    def __init__(self, capacity, max_seq_length=8):
+
+        self.capacity = capacity
+        self.max_seq_length = max_seq_length
+        self.memory = [[]]
+        self.position = 0
+
+    def push(self, *args):
+        """
+        Saves a transition in the replay buffer
+        We deal with sequences so : 1 case in the memory buffer => a sequence until episode's end.
+        """
+        # To avoid storing everything on gpu
+        args = [arg.cpu() for arg in args]
+        self.memory[self.position].append(Transition(*args))
+
+    def sample(self, batch_size):
+
+        # Select randomly a sequence length
+        min_seq_length = np.random.randint(2, self.max_seq_length)
+        max_batch_size = batch_size//min_seq_length
+
+        trajectories = []
+        selected = set()
+
+        check_inf_loop = 0
+
+        while len(trajectories) != max_batch_size:
+            check_inf_loop += 1
+            if check_inf_loop > 100:
+                break
+
+            id_mem = np.random.randint(len(self.memory))
+
+            # Don't sample the same trajectorie twice.
+            if id_mem in selected:
+                continue
+            selected.add(id_mem)
+            random_traj = self.memory[id_mem]
+
+            if len(random_traj) < min_seq_length:
+                continue
+            elif len(random_traj) == min_seq_length:
+                trajectories.append(random_traj)
+            else:
+                limit_begin_id = len(random_traj) - min_seq_length + 1 # to include sup
+                random_begin = np.random.randint(0,limit_begin_id)
+                random_traj_cut = random_traj[random_begin:random_begin+min_seq_length]
+                trajectories.append(random_traj_cut)
+
+
+        # trajectories are : [[ step 1, step 2, step 3], [step1, step2, step3]] etc..
+        # we want : [[ step1, step1], [step2, step2]]
+        batch_size = len(trajectories)
+        return zip(*trajectories), batch_size
+
+    def end_of_ep(self):
+        """
+        A episode ends
+        """
+        self.position = (self.position + 1) % self.capacity
+
+        if len(self.memory) < self.capacity:
+            self.memory.append([])
+        else:
+            self.memory[self.position] = []
+
+
+    def __len__(self):
+        return len(self.memory)
+
+
 def freeze_as_np_dict(tensor_dict):
     out = {}
     for key in tensor_dict.keys():

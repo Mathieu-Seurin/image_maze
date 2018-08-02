@@ -1,0 +1,33 @@
+{
+  "model_to_test":
+  [
+      "resnet_dqn",
+      "resnet_dqn_pretrain"
+  ],
+
+  "extension_to_test":
+  [
+    "soft0_001_decay5",
+    "soft0_001_decay6",
+    "soft0_001_decay5_att",
+    "soft0_001_decay6_att",
+    "soft0_001_decay5_dot",
+    "soft0_001_decay6_dot"
+
+  ],
+
+  "env_config":
+  [
+    "text_medium_easy_gradient"
+  ],
+
+  "env_ext" :
+  [
+    "25obj_every2",
+    "35obj_every2"
+  ],
+
+  "gpu_available": [2],
+  "capacity_per_gpu" : 6,
+  "n_seed" : 5
+}

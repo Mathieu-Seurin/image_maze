@@ -1,0 +1,13 @@
+{
+  "name": "soft0_001_decay6_dot",
+  "resnet_dqn_params": {
+    "default_w_decay": 1e-6,
+
+    "fusing_method": "dot",
+    "embedding_size_before_dot" : 200,
+
+
+    "tau": 0.001,
+    "soft_update": true
+  }
+}
