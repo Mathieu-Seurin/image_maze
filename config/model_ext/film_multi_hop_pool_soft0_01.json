@@ -1,0 +1,16 @@
+{
+  "name": "film_multi_hop_pool_soft0_01",
+
+  "resnet_dqn_params":{
+
+    "film_gen_param_text":
+    {
+      "film_type" : "multi_hop",
+      "use_feedback" : true,
+      "vision_reducing_method" : "pool"
+    },
+
+    "tau" : 0.01,
+    "soft_update" : true
+  }
+}

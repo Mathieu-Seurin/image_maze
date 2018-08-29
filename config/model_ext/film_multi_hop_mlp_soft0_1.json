@@ -1,0 +1,17 @@
+{
+  "name": "film_multi_hop_mlp_soft0_1",
+
+  "resnet_dqn_params":{
+
+    "film_gen_param_text":
+    {
+      "film_type" : "multi_hop",
+      "use_feedback" : true,
+      "vision_reducing_size_mlp" : 40,
+      "vision_reducing_method" : "mlp"
+    },
+
+    "tau" : 0.1,
+    "soft_update" : true
+  }
+}

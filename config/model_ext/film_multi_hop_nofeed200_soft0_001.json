@@ -1,0 +1,16 @@
+{
+  "name": "film_multi_hop_nofeed200_soft0_001",
+
+  "resnet_dqn_params":{
+
+    "film_gen_param_text":
+    {
+      "film_type" : "multi_hop",
+      "use_feedback" : false,
+      "film_attention_size_hidden" : 200
+    },
+
+    "tau" : 0.001,
+    "soft_update" : true
+  }
+}
