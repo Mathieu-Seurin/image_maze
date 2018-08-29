@@ -31,7 +31,6 @@ class DQN(nn.Module):
         self.lr = config['learning_rate']
         self.gamma = config['discount_factor']
 
-        # Todo use this instead of config["concatenate_input"]
         self.is_multi_objective = is_multi_objective
 
         # At least 1 conv, then dense head

@@ -20,10 +20,12 @@
 
     "film_gen_param_text":
     {
-      "n_hidden_gamma" : 400,
-      "n_hidden_beta" : 400,
-      "common_layer" : true,
-      "dropout" : 0
+      "film_type" : "simple",
+      "use_feedback" : false,
+      "film_gen_hidden_size" : 512,
+      "film_attention_size_hidden" : 200,
+      "vision_reducing_size_mlp" : 40,
+      "vision_reducing_method" : "mlp"
     },
 
 
@@ -36,7 +38,7 @@
 
     "discount_factor": 0.90,
 
-    "n_modulated_block": 2,
+    "n_modulated_block": 4,
     "n_regular_block": 0,
 
     "resblock_dropout": 0,
@@ -55,6 +57,9 @@
 
     "hidden_mlp_attention": 0,
     "embedding_size_before_dot" : 0,
+
+    "memory_size" : 10000,
+    "exploration_method" : "eps_greedy",
 
 
     "tau" : 0.001,

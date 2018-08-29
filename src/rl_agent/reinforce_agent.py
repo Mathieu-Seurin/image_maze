@@ -12,7 +12,8 @@ from .agent_utils import check_params_changed, freeze_as_np_dict
 from .dqn_models import DQN, SoftmaxDQN
 import logging
 from copy import deepcopy
-from rl_agent.FiLM_agent import FilmedNet, FilmedNetText
+from rl_agent.FiLM_agent import FilmedNetText
+from .film_utils import FilmedNet
 import os
 from image_text_utils import TextToIds
 

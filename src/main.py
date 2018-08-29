@@ -95,7 +95,6 @@ def full_train_test(env_config, model_config, env_extension, model_extension, ex
     reward_list = []
     length_list = []
 
-
     assert discount_factor == 0.90, "Warning, is this what you really want ? Rewards will be different"
 
     for epoch in range(n_epochs):
@@ -209,9 +208,9 @@ def test(agent, env, config, test_number, discount_factor, save_path):
         for epoch in range(n_epochs_test):
             assert env.reward_position == objective, "position changed, warning"
 
-            # WARNING FREEZE COUNT SO THE MAZE DOESN'T CHANGE
-            env.count_ep_in_this_maze = 0
-            env.count_current_objective = 0
+            # # WARNING FREEZE COUNT SO THE MAZE DOESN'T CHANGE
+            # env.count_ep_in_this_maze = 0
+            # env.count_current_objective = 0
 
             state = env.reset(show=False)
 

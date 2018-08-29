@@ -12,7 +12,9 @@ import random
 from .agent_utils import ReplayMemory, Transition, Flatten, check_params_changed, freeze_as_np_dict, compute_slow_params_update
 from .dqn_models import DQN
 import pickle
-from rl_agent.FiLM_agent import FilmedNet, FilmedNetText
+
+from rl_agent.FiLM_agent import FilmedNetText
+from .film_utils import FilmedNet
 
 import logging
 import os
@@ -59,13 +61,20 @@ class DQNAgent(object):
             self.ref_model.cuda()
         self.n_action = n_action
 
-        # todo : put this in config
-        self.memory = ReplayMemory(10000)
-        self.discount_factor = self.forward_model.discount_factor
-
         self.tau = config['tau']
         self.batch_size = config["batch_size"]
         self.soft_update = config["soft_update"]
+
+        self.memory = ReplayMemory(config["memory_size"])
+
+        if config["exploration_method"] == "eps_greedy":
+            self.forward = self.select_action_eps_greedy
+        elif config["exploration_method"] == "boltzmann":
+            self.forward = self.select_action_boltzmann
+        else:
+            raise NotImplementedError("Wrong action selection method")
+
+        self.discount_factor = self.forward_model.discount_factor
 
         # logging.info('Model summary :')
         # logging.info(self.forward_model.forward)
@@ -85,28 +94,39 @@ class DQNAgent(object):
         self.forward_model.eval()
         self.ref_model.eval()
 
-    def forward(self, state, epsilon=0.1):
+    def format_state(self, state):
 
-        # if self.concatenate_objective:
-        #     state_loc = torch.cat((state_loc, FloatTensor(state['objective'])))
+        # state is {"env_state" : img, "objective": img/text}
+        var_state = dict()
+        var_state['env_state'] = Variable(FloatTensor(state['env_state']).unsqueeze(0), volatile=True)
+
+        if self.objective_is_text:
+            objective = self.text_to_vect.sentence_to_matrix(state['objective'])
+            objective = LongTensor(objective)  # Long expected for int input
+        else:
+            objective = FloatTensor(state['objective'])  # for image, use Float
+
+        var_state['objective'] = Variable(objective.unsqueeze(0), volatile=True)
+        return var_state
+
+    def select_action_eps_greedy(self, state, epsilon=0.1):
+
         plop = np.random.rand()
         if plop < epsilon:
             idx = np.random.randint(self.n_action)
         else:
-            # state is {"env_state" : img, "objective": img/text}
-            var_state = dict()
-            var_state['env_state'] = Variable(FloatTensor(state['env_state']).unsqueeze(0), volatile=True)
-
-            if self.objective_is_text:
-                objective = self.text_to_vect.sentence_to_matrix(state['objective'])
-                objective = LongTensor(objective) # Long expected for int input
-            else:
-                objective = FloatTensor(state['objective']) # for image, use Float
-
-            var_state['objective'] = Variable(objective.unsqueeze(0), volatile=True)
+            var_state = self.format_state(state)
             idx = self.forward_model(var_state).data.max(1)[1].cpu().numpy()[0]
-
         return idx
+
+    def select_action_boltzmann(self, state, epsilon=0.1):
+
+        var_state = self.format_state(state=state)
+        score = F.softmax(self.forward_model(var_state), dim=1)
+        chosen_action = np.random.choice([i for i in range(self.n_action)], p=score.data.cpu().numpy()[0,:])
+
+        return chosen_action
+
 
     def optimize(self, state, action, next_state, reward):
 

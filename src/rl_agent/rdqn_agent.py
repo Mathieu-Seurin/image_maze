@@ -183,6 +183,7 @@ class RDQN_Agent(object):
             # not enough sample at the moment
             return
 
+
         loss = 0
         self.forward_model.optimize_mode(optimize=True, batch_size=batch_size)
         self.ref_model.optimize_mode(optimize=True, batch_size=batch_size)

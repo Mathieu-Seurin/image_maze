@@ -48,7 +48,7 @@ class TextToIds(object):
         self.word_to_id = LabelEncoder()
         all_words_encoded = self.word_to_id.fit_transform(np.array(list(self.all_words)))
 
-        self.eos_id = float(self.word_to_id.transform(['eos'])[0])
+        self.eos_id = int(self.word_to_id.transform(['eos'])[0])
 
         # self.id_to_one_hot = OneHotEncoder(sparse=False)
         # self.id_to_one_hot.fit(all_words_encoded.reshape(len(self.all_words),1))
@@ -71,7 +71,7 @@ class TextToIds(object):
     def pad(self, sentence, max_length):
         n_padding = max_length-sentence.size(1)
         if n_padding != 0:
-            padding = LongTensor(torch.ones(1,n_padding).numpy()*self.eos_id)
+            padding = torch.ones(1,n_padding)*self.eos_id
             sentence = torch.cat((sentence, padding), dim=1)
         return sentence
 

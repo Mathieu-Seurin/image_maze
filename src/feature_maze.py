@@ -80,8 +80,8 @@ class ImageFmapGridWorld(object):
             print(os.path.join(self.image_location, self.train_test_folder))
             assert False, 'Please run preprocess in the src folder to generate datasets'
 
-        self.n_row = config["n_row"]
-        self.n_col = config["n_col"]
+        self.row_per_zone = config["n_row"]
+        self.col_per_zone = config["n_col"]
 
         self.agent_position = []
 
@@ -90,15 +90,23 @@ class ImageFmapGridWorld(object):
         # grid containing the class and color of each case
         self.grid_label_color = []
         self.current_objective = None
+
+        self.random_flip = config["random_flip_maze"]
         self.create_grid_of_image(show=False)
 
         if config["state_type"] == "narrow":
             self.get_env_state = self.get_current_square
+            self.apply_action = self._four_directions_actions
         elif config["state_type"] == "surrounding":
             self.get_env_state = self.get_current_square_and_all_directions
-        else:
-            #Todo : can view only in front of him (change actions)
-            raise NotImplementedError("Need to implement front view, maybe other maze")
+            self.apply_action = self._four_directions_actions
+
+        elif config["state_type"] == "front" :
+            raise NotImplementedError("Not useful in the end.")
+            self.get_env_state = self.get_current_and_front
+            # agent direction can be 0 1 2 3
+            self.agent_direction = np.random.randint(0,4)
+
 
 
         #============== OBJECTIVE SPECIFICATION ==============
@@ -231,33 +239,34 @@ class ImageFmapGridWorld(object):
             position_on_reward = bool(self.get_reward())
         return self.get_state()
 
-    def step(self, action):
-        current_x,current_y = copy(self.agent_position)
+    def _four_directions_actions(self, action):
+
+        current_x, current_y = copy(self.agent_position)
         reward = 0
 
         # Discourage invalid moves?
         wrong_action_penalty = 0.0
 
-        if action == 0: # NORTH
-            x_ = min(self.n_row-1, current_x+1)
+        if action == 0:  # NORTH
+            x_ = min(self.n_row - 1, current_x + 1)
             if x_ == current_x:
                 reward -= wrong_action_penalty
             else:
                 current_x = x_
         elif action == 1:  # SOUTH
-            x_ = max(0, current_x-1)
+            x_ = max(0, current_x - 1)
             if x_ == current_x:
                 reward -= wrong_action_penalty
             else:
                 current_x = x_
         elif action == 2:  # WEST
-            y_ = max(0, current_y-1)
+            y_ = max(0, current_y - 1)
             if y_ == current_y:
                 reward -= wrong_action_penalty
             else:
                 current_y = y_
         elif action == 3:  # EAST
-            y_ = min(self.n_col-1, current_y+1)
+            y_ = min(self.n_col - 1, current_y + 1)
             if y_ == current_y:
                 reward -= wrong_action_penalty
             else:
@@ -266,11 +275,17 @@ class ImageFmapGridWorld(object):
             assert False, "Wrong action"
 
         self.agent_position = (copy(current_x), copy(current_y))
+
+        return reward
+
+    def step(self, action):
+
+        reward = self.apply_action(action)
+
         observation = self.get_state()
         reward += self.get_reward()
         info = {'agent_position' : copy(self.agent_position), 'reward_position': copy(self._reward_position)}
 
-        assert self.agent_position == (current_x, current_y), "Problem with agent position"
 
         if reward == 1:
             done = True
@@ -374,6 +389,8 @@ class ImageFmapGridWorld(object):
                 default_background *= 0
 
             self.n_zone = 1
+            self.n_col = self.col_per_zone
+            self.n_row = self.row_per_zone
             # Create a grid where you indicated for each cell : it's color and the label associated
             # np_color_to_str is in image_utils (converting np.array to a string corresponding to RGB color)
             self.grid_label_color = np.array([[{'zone' : 0, 'color': default_background[:, j, i], 'label': j * self.n_col + i} for i in range(self.n_col)] for j in range(self.n_row)])
@@ -386,13 +403,11 @@ class ImageFmapGridWorld(object):
             zone_per_row = int(np.sqrt(self.n_zone))
             zone_per_col = int(np.sqrt(self.n_zone))
 
-            row_per_zone = self.n_row
-            col_per_zone = self.n_col
+            row_per_zone = self.row_per_zone
+            col_per_zone = self.col_per_zone
 
             tot_row = row_per_zone * zone_per_row
             tot_col = col_per_zone * zone_per_col
-
-
 
             if self.grid_type == "zone_color_gradient":
 
@@ -402,7 +417,7 @@ class ImageFmapGridWorld(object):
                         self.grid_label_color[i,j] = dict()
                         self.grid_label_color[i, j]['color'] = default_background[:, i, j]
                         pos_x, pos_y = i % row_per_zone, j % col_per_zone
-                        current_label = pos_x * self.n_col + pos_y
+                        current_label = pos_x * col_per_zone + pos_y
                         self.grid_label_color[i, j]['label'] = current_label
 
                         current_zone = i//row_per_zone*zone_per_col + j//col_per_zone
@@ -419,13 +434,13 @@ class ImageFmapGridWorld(object):
                 for i in range(zone_per_row):
                     bg_color = default_background[:, i*4, 0] # x4 is to have a bigger change of color
 
-                    line = np.array([[{'zone': count_zone, 'color': bg_color, 'label': j * self.n_col + i} for i in range(self.n_col)] for j in range(self.n_row)])
+                    line = np.array([[{'zone': count_zone, 'color': bg_color, 'label': j * col_per_zone + i} for i in range(col_per_zone)] for j in range(row_per_zone)])
                     count_zone += 1
 
                     for j in range(1,zone_per_col):
                         bg_color = default_background[:, i*4,j*4] # x4 is to have a bigger change of color
 
-                        line = np.concatenate((line, np.array([[{'zone': count_zone, 'color': bg_color, 'label': j * self.n_col + i} for i in range(self.n_col)] for j in range(self.n_row)])), axis=1)
+                        line = np.concatenate((line, np.array([[{'zone': count_zone, 'color': bg_color, 'label': j * col_per_zone + i} for i in range(col_per_zone)] for j in range(row_per_zone)])), axis=1)
                         count_zone += 1
 
 
@@ -436,10 +451,23 @@ class ImageFmapGridWorld(object):
 
                 assert count_zone == self.n_zone, "Problem in number of zone : count {}    self.n_zone {}".format(count_zone, self.n_zone)
 
-            self.n_row = self.n_row * zone_per_row
-            self.n_col = self.n_col * zone_per_col
+            self.n_row = row_per_zone * zone_per_row
+            self.n_col = col_per_zone * zone_per_col
 
+        self.lr_flipped = False
+        self.ud_flipped = False
 
+        old_shape = self.grid_label_color.shape
+
+        if self.random_flip:
+            if np.random.random() < 0.5:
+                self.grid_label_color = np.fliplr(self.grid_label_color)
+                self.lr_flipped = True
+            if np.random.random() < 0.5:
+                self.grid_label_color = np.flipud(self.grid_label_color)
+                self.ud_flipped = True
+
+        assert old_shape == self.grid_label_color.shape, "Shape of maze changed => error"
 
         self.grid = np.zeros((self.n_row, self.n_col)+self.features_shape)
 

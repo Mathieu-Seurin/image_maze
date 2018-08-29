@@ -33,6 +33,8 @@
     "head_pool_kernel": 2,
     "head_channel": 3,
 
+    "exploration_method" : "eps_greedy",
+    "memory_size" : 10000,
 
     "word_emb_size" : 30,
     "lstm_size" : 200

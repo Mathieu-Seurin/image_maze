@@ -28,8 +28,8 @@
     "fusing_method_before_recurrent" : "concatenate",
     "fusing_method_after_recurrent" : "no_fuse",
 
-    "n_hidden_lstm_dyn" : 300,
-    "lstm_dyn_n_layer" : 1,
+    "n_hidden_lstm_dyn" : 400,
+    "lstm_dyn_n_layer" : 2,
 
     "embedding_size_before_dot" : 0,
     "hidden_mlp_attention": 0,

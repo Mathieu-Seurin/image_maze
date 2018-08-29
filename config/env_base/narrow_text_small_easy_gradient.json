@@ -6,6 +6,7 @@
     "n_col": 2,
     "n_zone": 4,
     "state_type" : "narrow",
+    "random_flip_maze" : false,
     "change_maze" : 0,
     "maze_type" : "zone_color_gradient",
     "time_penalty" : false,

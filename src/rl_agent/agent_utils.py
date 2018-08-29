@@ -59,7 +59,7 @@ class ReplayMemoryRecurrent(object):
     def sample(self, batch_size):
 
         # Select randomly a sequence length
-        min_seq_length = np.random.randint(2, self.max_seq_length)
+        min_seq_length = np.random.randint(4, self.max_seq_length)
         max_batch_size = batch_size//min_seq_length
 
         trajectories = []
@@ -85,10 +85,12 @@ class ReplayMemoryRecurrent(object):
             elif len(random_traj) == min_seq_length:
                 trajectories.append(random_traj)
             else:
-                limit_begin_id = len(random_traj) - min_seq_length + 1 # to include sup
-                random_begin = np.random.randint(0,limit_begin_id)
-                random_traj_cut = random_traj[random_begin:random_begin+min_seq_length]
-                trajectories.append(random_traj_cut)
+                trajectories.append(random_traj[len(random_traj)-min_seq_length:])
+
+                # limit_begin_id = len(random_traj) - min_seq_length + 1 # to include sup
+                # random_begin = np.random.randint(0,limit_begin_id)
+                # random_traj_cut = random_traj[random_begin:random_begin+min_seq_length]
+                # trajectories.append(random_traj_cut)
 
 
         # trajectories are : [[ step 1, step 2, step 3], [step1, step2, step3]] etc..
