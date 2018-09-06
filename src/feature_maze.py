@@ -17,6 +17,24 @@ def plot_single_image(im):
     plt.imshow(im)
     plt.show()
 
+
+class GazingGrid(object):
+    def __init__(self, config):
+        pass
+
+    def step(self, action):
+        return state, reward, done, info
+
+    def apply_action(self):
+        pass
+
+    def train(self):
+        pass
+    def eval(self):
+        pass
+
+
+
 class ImageFmapGridWorld(object):
 
     @property
@@ -182,7 +200,6 @@ class ImageFmapGridWorld(object):
         if self.current_objective is None:
             self.current_objective = self._create_objective()
 #        self.current_objective = self._create_objective()
-
         return self.current_objective
 
     def _create_objective(self):
